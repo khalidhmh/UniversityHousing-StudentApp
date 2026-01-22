@@ -359,7 +359,7 @@ class __NewRequestFormState extends State<_NewRequestForm> {
                 ),
               ),
               child: DropdownButtonFormField<String>(
-                value: selectedType,
+                initialValue: selectedType,
                 items: requestTypes.map((String value) {
                   return DropdownMenuItem<String>(
                     value: value,

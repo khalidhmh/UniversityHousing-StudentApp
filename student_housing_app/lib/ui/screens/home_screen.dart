@@ -24,7 +24,7 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
   // بيانات الـ QR الثابتة للطالب (ID) + متغير للوقت لزيادة الأمان
-  String _studentID = "202604123"; 
+  final String _studentID = "202604123"; 
   String _qrData = "202604123";
   Timer? _timer;
 

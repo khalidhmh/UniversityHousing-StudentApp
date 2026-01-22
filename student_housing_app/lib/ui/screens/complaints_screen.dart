@@ -294,7 +294,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         ],
       ),
       child: DropdownButtonFormField<String>(
-        value: selectedRecipient,
+        initialValue: selectedRecipient,
         items: recipients.map((String value) {
           return DropdownMenuItem<String>(
             value: value,

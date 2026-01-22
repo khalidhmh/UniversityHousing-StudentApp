@@ -1,9 +1,9 @@
 import 'dart:async';
-import 'package:flutter/foundation.dart'; // عشان kIsWeb
+// عشان kIsWeb
 import 'package:flutter/material.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:flutter_windowmanager/flutter_windowmanager.dart';
+// تم حذف مكتبة flutter_windowmanager لأنها تسبب مشاكل في البناء
 import '../../core/services/security_service.dart';
 
 class SecureQrWidget extends StatefulWidget {
@@ -38,7 +38,7 @@ class _SecureQrWidgetState extends State<SecureQrWidget> {
   @override
   void initState() {
     super.initState();
-    _enableSecureMode();
+    // _enableSecureMode(); // تم تعطيل الحماية مؤقتاً
     _refreshQrLogic(); 
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -60,17 +60,23 @@ class _SecureQrWidgetState extends State<SecureQrWidget> {
     _secondsLeft = _securityService.getSecondsRemaining();
   }
 
+  // تم تعطيل هذه الدالة لأن المكتبة المسؤولة عنها قديمة
+  /*
   Future<void> _enableSecureMode() async {
-    if (kIsWeb) return; // تخطي الحماية في الويب
+    if (kIsWeb) return; 
     try { await FlutterWindowManager.addFlags(FlutterWindowManager.FLAG_SECURE); } catch (e) { debugPrint("$e"); }
   }
+  */
 
   @override
   void dispose() {
     _timer.cancel();
+    // تم إزالة كود التنظيف الخاص بالمكتبة المحذوفة
+    /*
     if (!kIsWeb) {
       FlutterWindowManager.clearFlags(FlutterWindowManager.FLAG_SECURE);
     }
+    */
     super.dispose();
   }
 
