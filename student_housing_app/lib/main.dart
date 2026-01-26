@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:provider/provider.dart';
+import 'core/viewmodels/profile_view_model.dart';
+import 'core/viewmodels/notifications_view_model.dart';
 import 'ui/screens/login_screen.dart';
 
 void main() {
@@ -21,17 +24,23 @@ class StudentHousingApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
-      debugShowCheckedModeBanner: false,
-      localizationsDelegates: const [
-        GlobalMaterialLocalizations.delegate,
-        GlobalWidgetsLocalizations.delegate,
-        GlobalCupertinoLocalizations.delegate,
+    return MultiProvider(
+      providers: [
+        ChangeNotifierProvider(create: (_) => ProfileViewModel()),
+        ChangeNotifierProvider(create: (_) => NotificationsViewModel()),
       ],
-      supportedLocales: const [Locale('ar', 'EG')],
-      locale: const Locale('ar', 'EG'),
-      scrollBehavior: MyCustomScrollBehavior(),
-      home: const LoginScreen(),
+      child: MaterialApp(
+        debugShowCheckedModeBanner: false,
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [Locale('ar', 'EG')],
+        locale: const Locale('ar', 'EG'),
+        scrollBehavior: MyCustomScrollBehavior(),
+        home: const LoginScreen(),
+      ),
     );
   }
 }

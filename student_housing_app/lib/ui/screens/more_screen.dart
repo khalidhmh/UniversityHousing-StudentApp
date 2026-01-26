@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/repositories/data_repository.dart';
 import 'maintenance_screen.dart';
 import 'complaints_history_screen.dart';
 import 'notifications_screen.dart';
@@ -333,9 +334,14 @@ class MoreScreen extends StatelessWidget {
             ),
           ),
           TextButton(
-            onPressed: () {
+            onPressed: () async {
               // Pop dialog first
               Navigator.pop(context);
+              
+              // Clear all cached data before logout
+              print('🗑️ Clearing cache on logout...');
+              await DataRepository().clearCache();
+              
               // Navigate to LoginScreen and remove all previous routes
               Navigator.pushAndRemoveUntil(
                 context,

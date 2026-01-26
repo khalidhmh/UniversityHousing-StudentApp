@@ -41,6 +41,9 @@ class _SecureQrWidgetState extends State<SecureQrWidget> {
     // _enableSecureMode(); // تم تعطيل الحماية مؤقتاً
     _refreshQrLogic(); 
 
+    // FROZEN: Timer disabled for Phase 1 (meals feature is disabled)
+    // We don't want to consume CPU generating tokens every 30s for a disabled feature
+    /*
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (mounted) {
         setState(() {
@@ -48,6 +51,10 @@ class _SecureQrWidgetState extends State<SecureQrWidget> {
         });
       }
     });
+    */
+    
+    // Use static/placeholder QR data for Phase 1
+    _qrData = "MEAL_TEASER_PHASE_1_${DateTime.now().millisecondsSinceEpoch ~/ 30000}";
   }
 
   void _refreshQrLogic() {
@@ -70,7 +77,8 @@ class _SecureQrWidgetState extends State<SecureQrWidget> {
 
   @override
   void dispose() {
-    _timer.cancel();
+    // Timer is frozen in Phase 1, no need to cancel
+    // _timer.cancel();
     // تم إزالة كود التنظيف الخاص بالمكتبة المحذوفة
     /*
     if (!kIsWeb) {

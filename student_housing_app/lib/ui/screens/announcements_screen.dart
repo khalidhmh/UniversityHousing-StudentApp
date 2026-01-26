@@ -1,8 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import '../../core/viewmodels/announcements_view_model.dart';
 
-class AnnouncementsScreen extends StatelessWidget {
+class AnnouncementsScreen extends StatefulWidget {
   const AnnouncementsScreen({super.key});
+
+  @override
+  State<AnnouncementsScreen> createState() => _AnnouncementsScreenState();
+}
+
+class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
+  late AnnouncementsViewModel _viewModel;
+
+  @override
+  void initState() {
+    super.initState();
+    _viewModel = AnnouncementsViewModel();
+    // Load announcements on screen initialization
+    _viewModel.loadAnnouncements();
+  }
+
+  @override
+  void dispose() {
+    _viewModel.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,58 +35,110 @@ class AnnouncementsScreen extends StatelessWidget {
         title: Text("لوحة الإعلانات", style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
         centerTitle: true,
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 600),
-          child: ListView(
-            padding: const EdgeInsets.all(20),
-            children: [
-              _buildColoredAnnouncementCard(
-                title: "تعديل مواعيد وجبة العشاء",
-                body: "نحيطكم علماً بأنه تم تعديل مواعيد صرف وجبة العشاء لتبدأ من الساعة 6 مساءً وحتى 9 مساءً.",
-                time: "منذ 3 ساعات",
-                bgColor: const Color(0xFFFFF3E0),
-                dotColor: const Color(0xFFFF9800),
+      body: ListenableBuilder(
+        listenable: _viewModel,
+        builder: (context, _) {
+          // Loading State
+          if (_viewModel.isLoading && _viewModel.announcements.isEmpty) {
+            return const Center(
+              child: CircularProgressIndicator(
+                color: Color(0xFF001F3F),
               ),
-              const SizedBox(height: 15),
-              _buildColoredAnnouncementCard(
-                title: "بدء التسجيل في الدورة الرياضية",
-                body: "تم فتح باب التسجيل في دورة كرة القدم الخماسية. يرجى التوجه لمكتب رعاية الشباب للتسجيل.",
-                time: "أمس",
-                bgColor: const Color(0xFFE3F2FD),
-                dotColor: const Color(0xFF2196F3),
+            );
+          }
+
+          // Error State
+          if (_viewModel.errorMessage != null && _viewModel.announcements.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.error_outline,
+                    size: 48,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    _viewModel.errorMessage ?? 'حدث خطأ',
+                    style: GoogleFonts.cairo(
+                      fontSize: 16,
+                      color: Colors.grey[700],
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: () => _viewModel.refreshAnnouncements(),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF001F3F),
+                    ),
+                    child: Text(
+                      'حاول مرة أخرى',
+                      style: GoogleFonts.cairo(
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ),
+                ],
               ),
-              const SizedBox(height: 15),
-              _buildColoredAnnouncementCard(
-                title: "تعليمات هامة بخصوص الإخلاء",
-                body: "على الطلاب الراغبين في إخلاء الطرف التأكد من تسليم العهدة قبل موعد المغادرة بـ 24 ساعة.",
-                time: "منذ يومين",
-                bgColor: const Color(0xFFFFEBEE), // أحمر فاتح
-                dotColor: const Color(0xFFD32F2F),
+            );
+          }
+
+          // Empty State
+          if (_viewModel.announcements.isEmpty) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(
+                    Icons.notifications_none,
+                    size: 48,
+                    color: Colors.grey,
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'لا توجد إعلانات حالياً',
+                    style: GoogleFonts.cairo(
+                      fontSize: 16,
+                      color: Colors.grey[700],
+                    ),
+                  ),
+                ],
               ),
-               const SizedBox(height: 15),
-              _buildColoredAnnouncementCard(
-                title: "انقطاع مياه مجدول",
-                body: "سيتم قطع المياه عن المبنى (أ) لأعمال الصيانة غداً من الساعة 10 صباحاً وحتى 12 ظهراً.",
-                time: "منذ 3 أيام",
-                bgColor: const Color(0xFFE8F5E9), // أخضر فاتح
-                dotColor: const Color(0xFF43A047),
+            );
+          }
+
+          // Announcements List
+          return Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 600),
+              child: RefreshIndicator(
+                onRefresh: () => _viewModel.refreshAnnouncements(),
+                child: ListView.builder(
+                  padding: const EdgeInsets.all(20),
+                  itemCount: _viewModel.announcements.length,
+                  itemBuilder: (context, index) {
+                    final announcement = _viewModel.announcements[index];
+                    return _buildAnnouncementCard(announcement);
+                  },
+                ),
               ),
-            ],
-          ),
-        ),
+            ),
+          );
+        },
       ),
     );
   }
 
-  Widget _buildColoredAnnouncementCard({
-    required String title,
-    required String body,
-    required String time,
-    required Color bgColor,
-    required Color dotColor,
-  }) {
+  Widget _buildAnnouncementCard(Map<String, dynamic> announcement) {
+    // Default colors if not provided from API
+    final bgColor = _getBackgroundColor(announcement['category'] ?? 'general');
+    final dotColor = _getDotColor(announcement['category'] ?? 'general');
+
     return Container(
+      margin: const EdgeInsets.only(bottom: 15),
       width: double.infinity,
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -81,7 +155,7 @@ class AnnouncementsScreen extends StatelessWidget {
               const SizedBox(width: 10),
               Expanded(
                 child: Text(
-                  title,
+                  announcement['title'] ?? '',
                   style: GoogleFonts.cairo(
                     fontSize: 16,
                     fontWeight: FontWeight.bold,
@@ -93,16 +167,82 @@ class AnnouncementsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 10),
           Text(
-            body,
-            style: GoogleFonts.cairo(fontSize: 14, color: Colors.grey[800], height: 1.5),
+            announcement['body'] ?? '',
+            style: GoogleFonts.cairo(
+              fontSize: 14,
+              color: Colors.grey[800],
+              height: 1.5,
+            ),
           ),
           const SizedBox(height: 10),
           Text(
-            time,
+            _formatDate(announcement['created_at'] ?? ''),
             style: GoogleFonts.cairo(fontSize: 12, color: Colors.grey[600]),
           ),
         ],
       ),
     );
+  }
+
+  Color _getBackgroundColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'رياضة':
+        return const Color(0xFFE8F5E9); // أخضر فاتح
+      case 'ثقافة':
+        return const Color(0xFFE3F2FD); // أزرق فاتح
+      case 'تحذير':
+      case 'هام':
+        return const Color(0xFFFFEBEE); // أحمر فاتح
+      case 'صيانة':
+      case 'تعديل':
+        return const Color(0xFFFFF3E0); // برتقالي فاتح
+      default:
+        return const Color(0xFFFFF3E0); // برتقالي فاتح
+    }
+  }
+
+  Color _getDotColor(String category) {
+    switch (category.toLowerCase()) {
+      case 'رياضة':
+        return const Color(0xFF43A047);
+      case 'ثقافة':
+        return const Color(0xFF2196F3);
+      case 'تحذير':
+      case 'هام':
+        return const Color(0xFFD32F2F);
+      case 'صيانة':
+      case 'تعديل':
+        return const Color(0xFFFF9800);
+      default:
+        return const Color(0xFFFF9800);
+    }
+  }
+
+  String _formatDate(String dateString) {
+    // If the API returns a simple time format like "منذ 3 ساعات", use it directly
+    if (dateString.contains('منذ') || dateString.contains('أمس')) {
+      return dateString;
+    }
+
+    // If it's a timestamp, try to parse and format it
+    try {
+      final date = DateTime.parse(dateString);
+      final now = DateTime.now();
+      final difference = now.difference(date);
+
+      if (difference.inHours < 1) {
+        return 'منذ قليل';
+      } else if (difference.inHours < 24) {
+        return 'منذ ${difference.inHours} ساعة';
+      } else if (difference.inDays == 1) {
+        return 'أمس';
+      } else if (difference.inDays < 7) {
+        return 'منذ ${difference.inDays} أيام';
+      } else {
+        return '${date.year}/${date.month}/${date.day}';
+      }
+    } catch (e) {
+      return dateString;
+    }
   }
 }
