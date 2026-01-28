@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:qr_flutter/qr_flutter.dart';
 import 'package:animate_do/animate_do.dart';
-import 'dart:async';
 
 // ViewModel
 import '../../core/viewmodels/home_view_model.dart';
@@ -31,38 +30,30 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
-
-  // تعريف الـ ViewModel
   final HomeViewModel _viewModel = HomeViewModel();
 
   @override
   void initState() {
     super.initState();
-    // تحميل البيانات
     _viewModel.loadData();
   }
 
-  @override
-  void dispose() {
-    _viewModel.dispose();
-    super.dispose();
-  }
-
+  // ✅ إضافة مستمع لتغيير الصفحة لتفادي إعادة البناء العشوائي
   void _onTabChange(int index) {
     setState(() => _currentIndex = index);
   }
 
   @override
   Widget build(BuildContext context) {
-    // ✅ تصحيح: استخدام return بدلاً من body:
     return ListenableBuilder(
       listenable: _viewModel,
       builder: (context, child) {
-        // Generate QR data from studentId
-        final qrData = _viewModel.studentId.isNotEmpty
+        // توليد الباركود (معالجة القيم الفارغة)
+        final qrData = (_viewModel.studentId.isNotEmpty && _viewModel.studentId != "0")
             ? "${_viewModel.studentId}-${DateTime.now().millisecondsSinceEpoch ~/ 30000}"
-            : "0";
+            : "LOADING";
 
+        // ✅ تحسين: إنشاء الصفحات مرة واحدة أو عند الحاجة
         final List<Widget> screens = [
           HomeDashboard(
             qrData: qrData,
@@ -77,7 +68,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
         return Scaffold(
           backgroundColor: const Color(0xFFF5F5F5),
-          body: screens[_currentIndex],
+          body: screens[_currentIndex], // عرض الصفحة المختارة
           bottomNavigationBar: BottomNavigationBar(
             currentIndex: _currentIndex,
             onTap: _onTabChange,
@@ -86,20 +77,14 @@ class _HomeScreenState extends State<HomeScreen> {
             selectedItemColor: const Color(0xFF001F3F),
             unselectedItemColor: Colors.grey,
             showUnselectedLabels: true,
-            selectedLabelStyle: GoogleFonts.cairo(
-                fontWeight: FontWeight.bold, fontSize: 12),
+            selectedLabelStyle: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 12),
             unselectedLabelStyle: GoogleFonts.cairo(fontSize: 10),
             items: const [
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.home), label: "الرئيسية"),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.restaurant), label: "الوجبات"),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.local_activity), label: "الأنشطة"),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.person), label: "الملف"),
-              BottomNavigationBarItem(
-                  icon: Icon(Icons.menu), label: "المزيد"),
+              BottomNavigationBarItem(icon: Icon(Icons.home), label: "الرئيسية"),
+              BottomNavigationBarItem(icon: Icon(Icons.restaurant), label: "الوجبات"),
+              BottomNavigationBarItem(icon: Icon(Icons.local_activity), label: "الأنشطة"),
+              BottomNavigationBarItem(icon: Icon(Icons.person), label: "الملف"),
+              BottomNavigationBarItem(icon: Icon(Icons.menu), label: "المزيد"),
             ],
           ),
         );
@@ -109,7 +94,7 @@ class _HomeScreenState extends State<HomeScreen> {
 }
 
 // ---------------------------------------------------------
-// HomeDashboard
+// HomeDashboard (تم الإصلاح لمنع الانهيار)
 // ---------------------------------------------------------
 class HomeDashboard extends StatelessWidget {
   final String qrData;
@@ -126,6 +111,10 @@ class HomeDashboard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final statusData = viewModel.getRollCallStatusUI();
+    // حماية الاسم من الأخطاء
+    final displayName = viewModel.studentName.isNotEmpty
+        ? viewModel.studentName.split(' ').take(2).join(' ')
+        : "طالب";
 
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5),
@@ -149,14 +138,9 @@ class HomeDashboard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text("جامعة العاصمة",
-                      style: GoogleFonts.cairo(
-                          fontSize: 12, color: const Color(0xFFF2C94C))),
-                  Text(
-                      "أهلاً، ${viewModel.studentName.split(' ').take(2).join(' ')}",
-                      style: GoogleFonts.cairo(
-                          fontSize: 16,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white)),
+                      style: GoogleFonts.cairo(fontSize: 12, color: const Color(0xFFF2C94C))),
+                  Text("أهلاً، $displayName",
+                      style: GoogleFonts.cairo(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)),
                 ],
               ),
             ),
@@ -165,10 +149,7 @@ class HomeDashboard extends StatelessWidget {
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications_none, color: Colors.white),
-            onPressed: () => Navigator.push(
-                context,
-                MaterialPageRoute(
-                    builder: (context) => const NotificationsScreen())),
+            onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const NotificationsScreen())),
           ),
         ],
       ),
@@ -222,7 +203,7 @@ class HomeDashboard extends StatelessWidget {
 
                 const SizedBox(height: 25),
 
-                // 3. الإعلانات
+                // 3. الإعلانات (تم الإصلاح: إزالة ListView واستبدالها بـ Column Loop)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Column(
@@ -234,15 +215,8 @@ class HomeDashboard extends StatelessWidget {
                           children: [
                             _buildSectionTitle("آخر الإعلانات"),
                             TextButton(
-                                onPressed: () => Navigator.push(
-                                    context,
-                                    MaterialPageRoute(
-                                        builder: (context) =>
-                                        const AnnouncementsScreen())),
-                                child: Text("عرض الكل",
-                                    style: GoogleFonts.cairo(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.bold)))
+                                onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const AnnouncementsScreen())),
+                                child: Text("عرض الكل", style: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.bold)))
                           ],
                         ),
                       ),
@@ -253,33 +227,30 @@ class HomeDashboard extends StatelessWidget {
                           padding: EdgeInsets.all(20.0),
                           child: Center(child: CircularProgressIndicator()),
                         )
+                      else if (viewModel.announcements.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.all(20),
+                          child: Text("لا توجد إعلانات حالياً", style: GoogleFonts.cairo(color: Colors.grey)),
+                        )
                       else
-                        ListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: viewModel.announcements.length,
-                          itemBuilder: (context, index) {
+                      // ✅ الحل السحري: استخدام Loop عادي داخل Column بدلاً من ListView
+                        Column(
+                          children: viewModel.announcements.asMap().entries.map((entry) {
+                            int index = entry.key;
+                            var item = entry.value;
                             return FadeInUp(
-                              delay:
-                              Duration(milliseconds: 600 + (index * 100)),
+                              delay: Duration(milliseconds: 600 + (index * 100)),
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 10),
                                 child: _buildColoredAnnouncementCard(
-                                  title: viewModel.announcements[index]
-                                  ['title'],
-                                  time: viewModel.announcements[index]
-                                  ['created_at'] ??
-                                      "الآن",
-                                  bgColor: index % 2 == 0
-                                      ? const Color(0xFFFFF3E0)
-                                      : const Color(0xFFE3F2FD),
-                                  dotColor: index % 2 == 0
-                                      ? const Color(0xFFFF9800)
-                                      : const Color(0xFF2196F3),
+                                  title: item['title'] ?? "بدون عنوان",
+                                  time: item['created_at'] ?? "الآن",
+                                  bgColor: index % 2 == 0 ? const Color(0xFFFFF3E0) : const Color(0xFFE3F2FD),
+                                  dotColor: index % 2 == 0 ? const Color(0xFFFF9800) : const Color(0xFF2196F3),
                                 ),
                               ),
                             );
-                          },
+                          }).toList(),
                         ),
                     ],
                   ),
@@ -296,6 +267,8 @@ class HomeDashboard extends StatelessWidget {
   // --- Helper Methods ---
 
   void _showQRDialog(BuildContext context) {
+    if (viewModel.studentId.isEmpty || viewModel.studentId == "0") return; // حماية إضافية
+
     showDialog(
       context: context,
       builder: (ctx) => Dialog(
@@ -308,27 +281,20 @@ class HomeDashboard extends StatelessWidget {
               const CircleAvatar(
                 radius: 30,
                 backgroundColor: Color(0xFF001F3F),
-                child: Icon(Icons.qr_code_scanner,
-                    color: Colors.white, size: 30),
+                child: Icon(Icons.qr_code_scanner, color: Colors.white, size: 30),
               ),
               const SizedBox(height: 15),
               Text("باركود الطالب",
-                  style: GoogleFonts.cairo(
-                      fontSize: 20,
-                      fontWeight: FontWeight.bold,
-                      color: const Color(0xFF001F3F))),
+                  style: GoogleFonts.cairo(fontSize: 20, fontWeight: FontWeight.bold, color: const Color(0xFF001F3F))),
               Text(viewModel.studentName,
-                  style: GoogleFonts.cairo(
-                      fontSize: 16, color: Colors.grey[700])),
+                  style: GoogleFonts.cairo(fontSize: 16, color: Colors.grey[700])),
               const SizedBox(height: 20),
               Container(
                 padding: const EdgeInsets.all(15),
                 decoration: BoxDecoration(
-                    border: Border.all(
-                        color: const Color(0xFFF2C94C), width: 3),
+                    border: Border.all(color: const Color(0xFFF2C94C), width: 3),
                     borderRadius: BorderRadius.circular(15)),
-                child: QrImageView(
-                    data: qrData, version: QrVersions.auto, size: 200.0),
+                child: QrImageView(data: qrData, version: QrVersions.auto, size: 200.0),
               ),
               const SizedBox(height: 20),
               Text("يستخدم للتمام واستلام الوجبات",
@@ -340,10 +306,8 @@ class HomeDashboard extends StatelessWidget {
                   onPressed: () => Navigator.pop(ctx),
                   style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF001F3F),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(10))),
-                  child: Text("إغلاق",
-                      style: GoogleFonts.cairo(color: Colors.white)),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10))),
+                  child: Text("إغلاق", style: GoogleFonts.cairo(color: Colors.white)),
                 ),
               ),
             ],
@@ -359,45 +323,28 @@ class HomeDashboard extends StatelessWidget {
       return Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          _buildActionItem(
-              width: itemWidth,
-              icon: Icons.restaurant,
-              label: "الوجبات",
-              onTap: () => onTabChange(1)),
+          _buildActionItem(width: itemWidth, icon: Icons.restaurant, label: "الوجبات", onTap: () => onTabChange(1)),
           _buildActionItem(
               width: itemWidth,
               icon: Icons.chat_bubble_outline,
               label: "الشكاوى",
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const ComplaintsScreen()))),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const ComplaintsScreen()))),
           _buildActionItem(
               width: itemWidth,
               icon: Icons.build_outlined,
               label: "الصيانة",
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const MaintenanceScreen()))),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const MaintenanceScreen()))),
           _buildActionItem(
               width: itemWidth,
               icon: Icons.description_outlined,
               label: "التصاريح",
-              onTap: () => Navigator.push(
-                  context,
-                  MaterialPageRoute(
-                      builder: (context) => const PermissionsScreen()))),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const PermissionsScreen()))),
         ],
       );
     });
   }
 
-  Widget _buildActionItem(
-      {required double width,
-        required IconData icon,
-        required String label,
-        required VoidCallback onTap}) {
+  Widget _buildActionItem({required double width, required IconData icon, required String label, required VoidCallback onTap}) {
     return ZoomIn(
       duration: const Duration(milliseconds: 500),
       child: GestureDetector(
@@ -411,19 +358,12 @@ class HomeDashboard extends StatelessWidget {
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(20),
-                  boxShadow: [
-                    BoxShadow(
-                        color: Colors.grey.withOpacity(0.08),
-                        blurRadius: 15,
-                        offset: const Offset(0, 5))
-                  ],
+                  boxShadow: [BoxShadow(color: Colors.grey.withOpacity(0.08), blurRadius: 15, offset: const Offset(0, 5))],
                 ),
                 child: Icon(icon, color: const Color(0xFF001F3F), size: 30),
               ),
               const SizedBox(height: 10),
-              Text(label,
-                  style: GoogleFonts.cairo(
-                      fontWeight: FontWeight.bold, fontSize: 13)),
+              Text(label, style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 13)),
             ],
           ),
         ),
@@ -431,11 +371,7 @@ class HomeDashboard extends StatelessWidget {
     );
   }
 
-  Widget _buildColoredAnnouncementCard(
-      {required String title,
-        required String time,
-        required Color bgColor,
-        required Color dotColor}) {
+  Widget _buildColoredAnnouncementCard({required String title, required String time, required Color bgColor, required Color dotColor}) {
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 18),
@@ -452,14 +388,8 @@ class HomeDashboard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: GoogleFonts.cairo(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFFD84315))),
-                Text(time,
-                    style: GoogleFonts.cairo(
-                        fontSize: 12, color: Colors.grey[600])),
+                Text(title, style: GoogleFonts.cairo(fontSize: 15, fontWeight: FontWeight.bold, color: const Color(0xFFD84315))),
+                Text(time, style: GoogleFonts.cairo(fontSize: 12, color: Colors.grey[600])),
               ],
             ),
           ),
@@ -472,11 +402,9 @@ class HomeDashboard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
       decoration: const BoxDecoration(
-        border:
-        Border(right: BorderSide(color: Color(0xFFF2C94C), width: 3)),
+        border: Border(right: BorderSide(color: Color(0xFFF2C94C), width: 3)),
       ),
-      child: Text(title,
-          style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 18)),
+      child: Text(title, style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 18)),
     );
   }
 }

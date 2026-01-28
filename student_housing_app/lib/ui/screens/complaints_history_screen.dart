@@ -223,6 +223,8 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
 
     // Success state with complaints list
     return ListView.builder(
+      shrinkWrap: true, // ✅ مفتاح الحل 1
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: complaints.length,
       itemBuilder: (context, index) {

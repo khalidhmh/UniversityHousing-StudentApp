@@ -145,6 +145,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
     // Notifications list
     return ListView.builder(
+      shrinkWrap: true, // ✅ مفتاح الحل 1
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: viewModel.notifications.length,
       itemBuilder: (context, index) {

@@ -198,6 +198,8 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
 
     // Success state with requests list
     return ListView.builder(
+      shrinkWrap: true, // ✅ مفتاح الحل 1
+      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: requests.length,
       itemBuilder: (context, index) {

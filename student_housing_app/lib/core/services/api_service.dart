@@ -3,113 +3,91 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
 class ApiService {
-  // ⚠️ هام جداً:
-  // لو شغال على Emulator (محاكي أندرويد) استخدم: 10.0.2.2
-  // لو شغال على موبايل حقيقي أو iOS استخدم الـ IP بتاع جهازك: 192.168.1.X
-  // static const String _baseUrl = "http://10.0.2.2:3000/api";
-  static const String _baseUrl = "http://192.168.1.12:3000/api";
+  // ✅ تأكد إن الـ IP ده هو بتاع جهاز الكمبيوتر بتاعك (من أمر hostname -I)
+  static const String baseUrl = "http://192.168.1.12:3000/api";
 
-  // Singleton Pattern (عشان نستخدم نفس النسخة في كل مكان)
-  static final ApiService _instance = ApiService._internal();
-  factory ApiService() => _instance;
-  ApiService._internal();
+  // ✅ انسخ الدالة دي وضيفها هنا (مهمة جداً)
+  static String getImageUrl(String? path) {
+    if (path == null || path.isEmpty) return "";
+    if (path.startsWith('http')) return path;
+    // بنشيل /api عشان نوصل للروت بتاع الصور
+    final rootUrl = baseUrl.replaceAll('/api', '');
+    return '$rootUrl$path';
+  }
 
-  // دالة لجلب التوكن من الذاكرة
+  // دالة لجلب التوكن (لو موجود)
   Future<String?> _getToken() async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getString('token');
+    return prefs.getString('auth_token'); // وحدنا الاسم لـ auth_token
   }
 
-  // --- 1. تسجيل الدخول (Login) ---
-  Future<Map<String, dynamic>> login(String id, String password) async {
-    final url = Uri.parse('$_baseUrl/auth/login');
-
-    try {
-      final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
-        body: jsonEncode({
-          'userType': 'student', // مثبت مبدئياً، ممكن نغيره بعدين
-          'id': id,
-          'password': password,
-        }),
-      );
-
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        // حفظ التوكن والبيانات عند النجاح
-        final prefs = await SharedPreferences.getInstance();
-        await prefs.setString('token', data['token']);
-        await prefs.setString('student_name', data['user']['name']);
-        return {'success': true, 'data': data};
-      } else {
-        return {'success': false, 'message': data['message'] ?? 'خطأ في تسجيل الدخول'};
-      }
-    } catch (e) {
-      return {'success': false, 'message': 'فشل الاتصال بالسيرفر: $e'};
-    }
-  }
-
-  // --- 2. دالة GET عامة (لجلب البيانات) ---
-  // دي اللي هنستخدمها لجلب الشكاوى، الغياب، الأنشطة...
+  // --- دالة GET ---
   Future<Map<String, dynamic>> get(String endpoint) async {
-    final token = await _getToken();
-    if (token == null) return {'success': false, 'message': 'غير مسجل دخول'};
-
-    final url = Uri.parse('$_baseUrl$endpoint');
-
     try {
+      final token = await _getToken();
+
       final response = await http.get(
-        url,
+        Uri.parse('$baseUrl$endpoint'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token', // ✅ هنا السحر: بنبعت التوكن للسيرفر
+          if (token != null) 'Authorization': 'Bearer $token',
         },
       );
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200) {
-        return {'success': true, 'data': data};
-      } else if (response.statusCode == 401) {
-        // لو التوكن انتهى، ممكن هنا نعمل خروج تلقائي
-        return {'success': false, 'message': 'انتهت الجلسة، سجل دخول مرة أخرى'};
-      } else {
-        return {'success': false, 'message': data['message'] ?? 'حدث خطأ'};
-      }
+      return _processResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'فشل الاتصال: $e'};
     }
   }
 
-  // --- 3. دالة POST عامة (لإرسال البيانات) ---
-  // دي اللي هنستخدمها لإرسال شكوى، طلب صيانة، طلب تصريح...
+  // --- دالة POST (الجوكر) ---
   Future<Map<String, dynamic>> post(String endpoint, Map<String, dynamic> body) async {
-    final token = await _getToken();
-    if (token == null) return {'success': false, 'message': 'غير مسجل دخول'};
-
-    final url = Uri.parse('$_baseUrl$endpoint');
-
     try {
+      final token = await _getToken();
+
+      print('🚀 POST Request to: $baseUrl$endpoint'); // Debug
+
       final response = await http.post(
-        url,
+        Uri.parse('$baseUrl$endpoint'),
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': 'Bearer $token',
+          // ✅ التوكن هنا اختياري: لو موجود حطه، لو مش موجود (زي الـ Login) كمل عادي
+          if (token != null) 'Authorization': 'Bearer $token',
         },
         body: jsonEncode(body),
       );
 
-      final data = jsonDecode(response.body);
-
-      if (response.statusCode == 200 || response.statusCode == 201) {
-        return {'success': true, 'data': data};
-      } else {
-        return {'success': false, 'message': data['message'] ?? 'فشل الإرسال'};
-      }
+      print('📥 Response: ${response.body}'); // Debug
+      return _processResponse(response);
     } catch (e) {
       return {'success': false, 'message': 'فشل الاتصال: $e'};
+    }
+  }
+
+  // --- معالجة الرد الموحدة ---
+  Map<String, dynamic> _processResponse(http.Response response) {
+    try {
+      if (response.body.isEmpty) return {'success': false, 'message': 'Empty Response'};
+
+      final body = jsonDecode(response.body);
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        // لو الرد Map رجعه زي ما هو، لو List أو String غلفه
+        if (body is Map<String, dynamic>) {
+          // أحياناً السيرفر بيرجع success:true بس البيانات ناقصة، ده مجرد تمرير
+          return body;
+        } else {
+          return {'success': true, 'data': body};
+        }
+      } else {
+        // لو فيه خطأ من السيرفر (400, 401, 500)
+        return {
+          'success': false,
+          'message': body is Map ? (body['message'] ?? 'حدث خطأ') : 'خطأ غير معروف'
+        };
+      }
+    } catch (e) {
+      return {'success': false, 'message': 'خطأ في قراءة البيانات: $e'};
     }
   }
 }

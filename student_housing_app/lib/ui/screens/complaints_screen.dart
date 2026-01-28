@@ -13,7 +13,6 @@ class ComplaintsScreen extends StatefulWidget {
 }
 
 class _ComplaintsScreenState extends State<ComplaintsScreen> {
-  late ComplaintsViewModel _viewModel;
   bool _isSecret = false;
   String? _selectedRecipient;
   final TextEditingController _subjectController = TextEditingController();
@@ -28,38 +27,9 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   ];
 
   @override
-  void initState() {
-    super.initState();
-    _viewModel = context.read<ComplaintsViewModel>();
-    _setupListeners();
-  }
-
-  /// Setup listeners for ViewModel state changes
-  void _setupListeners() {
-    // Listen for success messages
-    Future.delayed(Duration.zero, () {
-      _viewModel.addListener(_onViewModelStateChanged);
-    });
-  }
-
-  /// Called when ViewModel state changes
-  void _onViewModelStateChanged() {
-    if (_viewModel.successMessage != null) {
-      _showSuccessDialog(_viewModel.successMessage!);
-      _viewModel.clearSuccessMessage();
-    }
-
-    if (_viewModel.errorMessage != null) {
-      _showErrorDialog(_viewModel.errorMessage!);
-      _viewModel.clearErrorMessage();
-    }
-  }
-
-  @override
   void dispose() {
     _subjectController.dispose();
     _messageController.dispose();
-    _viewModel.removeListener(_onViewModelStateChanged);
     super.dispose();
   }
 
@@ -93,9 +63,8 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
           ),
         ],
       ),
-      body: ListenableBuilder(
-        listenable: _viewModel,
-        builder: (context, _) {
+      body: Consumer<ComplaintsViewModel>(
+        builder: (context, viewModel, _) {
           return Center(
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
@@ -181,7 +150,9 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                       width: double.infinity,
                       height: 50,
                       child: ElevatedButton(
-                        onPressed: _viewModel.isSubmitting ? null : _submitComplaint,
+                        onPressed: viewModel.isSubmitting
+                            ? null
+                            : () => _submitComplaint(context, viewModel),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF2C94C),
                           disabledBackgroundColor: Colors.grey[400],
@@ -189,7 +160,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                             borderRadius: BorderRadius.circular(10),
                           ),
                         ),
-                        child: _viewModel.isSubmitting
+                        child: viewModel.isSubmitting
                             ? SizedBox(
                                 height: 24,
                                 width: 24,
@@ -210,6 +181,69 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                               ),
                       ),
                     ),
+
+                    // Error Message Display
+                    if (viewModel.errorMessage != null &&
+                        viewModel.errorMessage!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFEBEE),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.red[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(Icons.error_outline, color: Colors.red[900]),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  viewModel.errorMessage!,
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 14,
+                                    color: Colors.red[900],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+
+                    // Success Message Display
+                    if (viewModel.successMessage != null &&
+                        viewModel.successMessage!.isNotEmpty)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 20),
+                        child: Container(
+                          padding: const EdgeInsets.all(12),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE8F5E9),
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.green[200]!),
+                          ),
+                          child: Row(
+                            children: [
+                              Icon(
+                                Icons.check_circle,
+                                color: Colors.green[900],
+                              ),
+                              const SizedBox(width: 12),
+                              Expanded(
+                                child: Text(
+                                  viewModel.successMessage!,
+                                  style: GoogleFonts.cairo(
+                                    fontSize: 14,
+                                    color: Colors.green[900],
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
                   ],
                 ),
               ),
@@ -226,22 +260,14 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 5,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
       ),
       child: DropdownButtonFormField<String>(
         value: _selectedRecipient,
         items: recipients.map((String value) {
           return DropdownMenuItem<String>(
             value: value,
-            child: Text(
-              value,
-              style: GoogleFonts.cairo(),
-            ),
+            child: Text(value, style: GoogleFonts.cairo()),
           );
         }).toList(),
         onChanged: (String? newValue) {
@@ -251,9 +277,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         },
         hint: Text(
           'اختر المستقبل',
-          style: GoogleFonts.cairo(
-            color: Colors.grey,
-          ),
+          style: GoogleFonts.cairo(color: Colors.grey),
         ),
         decoration: InputDecoration(
           border: InputBorder.none,
@@ -261,9 +285,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
             horizontal: 16,
             vertical: 12,
           ),
-          hintStyle: GoogleFonts.cairo(
-            color: Colors.grey,
-          ),
+          hintStyle: GoogleFonts.cairo(color: Colors.grey),
         ),
       ),
     );
@@ -278,21 +300,14 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 5,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
       ),
       child: TextField(
         controller: controller,
         style: GoogleFonts.cairo(),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: GoogleFonts.cairo(
-            color: Colors.grey,
-          ),
+          hintStyle: GoogleFonts.cairo(color: Colors.grey),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -312,12 +327,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 5,
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
       ),
       child: TextField(
         controller: controller,
@@ -325,9 +335,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         style: GoogleFonts.cairo(),
         decoration: InputDecoration(
           hintText: hintText,
-          hintStyle: GoogleFonts.cairo(
-            color: Colors.grey,
-          ),
+          hintStyle: GoogleFonts.cairo(color: Colors.grey),
           border: InputBorder.none,
           contentPadding: const EdgeInsets.symmetric(
             horizontal: 16,
@@ -345,10 +353,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         onPressed: () {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text(
-                '$label - قيد التطوير',
-                style: GoogleFonts.cairo(),
-              ),
+              content: Text('$label - قيد التطوير', style: GoogleFonts.cairo()),
               backgroundColor: Colors.blue,
             ),
           );
@@ -356,20 +361,12 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         icon: Icon(icon),
         label: Text(
           label,
-          style: GoogleFonts.cairo(
-            fontSize: 12,
-            fontWeight: FontWeight.w500,
-          ),
+          style: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w500),
         ),
         style: OutlinedButton.styleFrom(
           foregroundColor: const Color(0xFF001F3F),
-          side: const BorderSide(
-            color: Color(0xFF001F3F),
-            width: 1.5,
-          ),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(8),
-          ),
+          side: const BorderSide(color: Color(0xFF001F3F), width: 1.5),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
           padding: const EdgeInsets.symmetric(vertical: 12),
         ),
       ),
@@ -377,17 +374,30 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   }
 
   /// Submit complaint handler
-  Future<void> _submitComplaint() async {
+  Future<void> _submitComplaint(
+    BuildContext context,
+    ComplaintsViewModel viewModel,
+  ) async {
     // Validate inputs
     if (_selectedRecipient == null ||
         _subjectController.text.isEmpty ||
         _messageController.text.isEmpty) {
-      _showErrorDialog('يرجى ملء جميع الحقول المطلوبة');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'يرجى ملء جميع الحقول المطلوبة',
+              style: GoogleFonts.cairo(),
+            ),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
       return;
     }
 
-    // Submit complaint via ViewModel
-    final success = await _viewModel.submitComplaint(
+    // Submit complaint via ViewModel (using Provider context to avoid context validity issues)
+    final success = await viewModel.submitComplaint(
       title: _subjectController.text,
       description: _messageController.text,
       recipient: _selectedRecipient!,
@@ -428,9 +438,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         ),
         content: Text(
           message,
-          style: GoogleFonts.cairo(
-            color: Colors.green[900],
-          ),
+          style: GoogleFonts.cairo(color: Colors.green[900]),
         ),
         actions: [
           TextButton(
@@ -471,9 +479,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         ),
         content: Text(
           message,
-          style: GoogleFonts.cairo(
-            color: Colors.red[900],
-          ),
+          style: GoogleFonts.cairo(color: Colors.red[900]),
         ),
         actions: [
           TextButton(

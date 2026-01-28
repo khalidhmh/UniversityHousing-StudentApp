@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:provider/provider.dart';
 import '../../core/viewmodels/announcements_view_model.dart';
 
 class AnnouncementsScreen extends StatefulWidget {
@@ -10,20 +11,13 @@ class AnnouncementsScreen extends StatefulWidget {
 }
 
 class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
-  late AnnouncementsViewModel _viewModel;
-
   @override
   void initState() {
     super.initState();
-    _viewModel = AnnouncementsViewModel();
-    // Load announcements on screen initialization
-    _viewModel.loadAnnouncements();
-  }
-
-  @override
-  void dispose() {
-    _viewModel.dispose();
-    super.dispose();
+    // Load announcements using Provider's context to access ViewModel
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AnnouncementsViewModel>().loadAnnouncements();
+    });
   }
 
   @override
@@ -32,35 +26,35 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
       backgroundColor: const Color(0xFFF5F5F5),
       appBar: AppBar(
         backgroundColor: const Color(0xFF001F3F),
-        title: Text("لوحة الإعلانات", style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
+        title: Text(
+          "لوحة الإعلانات",
+          style: GoogleFonts.cairo(fontWeight: FontWeight.bold),
+        ),
         centerTitle: true,
       ),
       body: ListenableBuilder(
-        listenable: _viewModel,
+        listenable: context.watch<AnnouncementsViewModel>(),
         builder: (context, _) {
+          final viewModel = context.read<AnnouncementsViewModel>();
+
           // Loading State
-          if (_viewModel.isLoading && _viewModel.announcements.isEmpty) {
+          if (viewModel.isLoading && viewModel.announcements.isEmpty) {
             return const Center(
-              child: CircularProgressIndicator(
-                color: Color(0xFF001F3F),
-              ),
+              child: CircularProgressIndicator(color: Color(0xFF001F3F)),
             );
           }
 
           // Error State
-          if (_viewModel.errorMessage != null && _viewModel.announcements.isEmpty) {
+          if (viewModel.errorMessage != null &&
+              viewModel.announcements.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  const Icon(
-                    Icons.error_outline,
-                    size: 48,
-                    color: Colors.grey,
-                  ),
+                  const Icon(Icons.error_outline, size: 48, color: Colors.grey),
                   const SizedBox(height: 16),
                   Text(
-                    _viewModel.errorMessage ?? 'حدث خطأ',
+                    viewModel.errorMessage ?? 'حدث خطأ',
                     style: GoogleFonts.cairo(
                       fontSize: 16,
                       color: Colors.grey[700],
@@ -69,7 +63,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
                   ),
                   const SizedBox(height: 24),
                   ElevatedButton(
-                    onPressed: () => _viewModel.refreshAnnouncements(),
+                    onPressed: () => viewModel.refreshAnnouncements(),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: const Color(0xFF001F3F),
                     ),
@@ -87,7 +81,7 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
           }
 
           // Empty State
-          if (_viewModel.announcements.isEmpty) {
+          if (viewModel.announcements.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
@@ -115,12 +109,14 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
             child: ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 600),
               child: RefreshIndicator(
-                onRefresh: () => _viewModel.refreshAnnouncements(),
+                onRefresh: () => viewModel.refreshAnnouncements(),
                 child: ListView.builder(
+                  shrinkWrap: true, // ✅ مفتاح الحل 1
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.all(20),
-                  itemCount: _viewModel.announcements.length,
+                  itemCount: viewModel.announcements.length,
                   itemBuilder: (context, index) {
-                    final announcement = _viewModel.announcements[index];
+                    final announcement = viewModel.announcements[index];
                     return _buildAnnouncementCard(announcement);
                   },
                 ),

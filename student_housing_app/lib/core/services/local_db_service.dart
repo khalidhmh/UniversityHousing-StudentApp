@@ -3,7 +3,6 @@ import 'package:path/path.dart';
 import 'dart:async';
 
 class LocalDBService {
-  // Singleton Pattern: نسخة واحدة فقط من الكلاس لضمان استقرار الاتصال
   static final LocalDBService _instance = LocalDBService._internal();
   static Database? _database;
 
@@ -11,78 +10,82 @@ class LocalDBService {
 
   LocalDBService._internal();
 
-  // الحصول على قاعدة البيانات (لو مش موجودة بيعملها init)
   Future<Database> get database async {
     if (_database != null) return _database!;
     _database = await _initDatabase();
     return _database!;
   }
 
-  // تهيئة قاعدة البيانات وإنشاء الجداول
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'housing_local.db');
+    String path = join(await getDatabasesPath(), 'housing_local_v2.db'); // ✅ غيرنا الاسم عشان يعمل داتا بيز جديدة نظيفة
 
     return await openDatabase(
-      path,
-      version: 1,
-      onCreate: (db, version) async {
-        print("📦 Creating Local Database Tables...");
+        path,
+        version: 2, // ✅ علينا الفيرجن
+        onCreate: (db, version) async {
+          print("📦 Creating Local Database Tables...");
 
-        // 1. Student Profile (بيانات الطالب الشخصية)
-        await db.execute('''
+          // 1. Student Profile (تم إضافة student_id و college)
+          await db.execute('''
           CREATE TABLE student_profile (
             id TEXT PRIMARY KEY, 
             national_id TEXT, 
             full_name TEXT, 
             room_json TEXT, 
-            photo_url TEXT
+            photo_url TEXT,
+            student_id TEXT, 
+            college TEXT
           )
         ''');
 
-        // 2. Attendance Cache (سجل الغياب)
-        await db.execute('''
+          // 2. Attendance Cache
+          await db.execute('''
           CREATE TABLE attendance_cache (
             date TEXT PRIMARY KEY, 
             status TEXT
           )
         ''');
 
-        // 3. Complaints Cache (الشكاوى)
-        await db.execute('''
+          // 3. Complaints Cache
+          await db.execute('''
           CREATE TABLE complaints_cache (
             id INTEGER PRIMARY KEY, 
             title TEXT, 
             description TEXT, 
             status TEXT, 
             type TEXT, 
-            admin_reply TEXT
+            admin_reply TEXT,
+            created_at TEXT
           )
         ''');
 
-        // 4. Maintenance Cache (الصيانة)
-        await db.execute('''
+          // 4. Maintenance Cache
+          await db.execute('''
           CREATE TABLE maintenance_cache (
             id INTEGER PRIMARY KEY, 
             category TEXT, 
             description TEXT, 
             status TEXT, 
-            supervisor_reply TEXT
+            supervisor_reply TEXT,
+            created_at TEXT
           )
         ''');
 
-        // 5. Permissions Cache (التصاريح)
-        await db.execute('''
+          // 5. Permissions Cache
+          await db.execute('''
           CREATE TABLE permissions_cache (
             id INTEGER PRIMARY KEY, 
             type TEXT, 
             start_date TEXT, 
             end_date TEXT, 
-            status TEXT
+            status TEXT,
+            reason TEXT,
+            created_at TEXT
           )
         ''');
 
-        // 6. Activities Cache (الأنشطة)
-        await db.execute('''
+          // 6. Activities Cache
+          await db.execute('''
           CREATE TABLE activities_cache (
             id INTEGER PRIMARY KEY, 
             title TEXT, 
@@ -90,42 +93,56 @@ class LocalDBService {
             image_url TEXT, 
             location TEXT, 
             event_date TEXT,
+            category TEXT,
             is_subscribed INTEGER
           )
         ''');
 
-        // 7. Clearance Cache (إخلاء الطرف)
-        await db.execute('''
+          // 7. Clearance Cache
+          await db.execute('''
           CREATE TABLE clearance_cache (
             id INTEGER PRIMARY KEY, 
             status TEXT, 
             room_check_passed INTEGER, 
-            keys_returned INTEGER
+            keys_returned INTEGER,
+            initiated_at TEXT
           )
         ''');
 
-        // 8. Announcements Cache (الإعلانات)
-        await db.execute('''
+          // 8. Announcements Cache (تم إضافة category و priority)
+          await db.execute('''
           CREATE TABLE announcements_cache (
             id INTEGER PRIMARY KEY, 
             title TEXT, 
             body TEXT, 
+            category TEXT,
+            priority TEXT,
             created_at TEXT
           )
         ''');
 
-        print("✅ Local Database Created Successfully");
-      },
+          print("✅ Local Database Created Successfully");
+        },
+        onUpgrade: (db, oldVersion, newVersion) async {
+          // لو التحديث حصل واليوزر منزل التطبيق، بنمسح الجداول القديمة ونعملها من جديد
+          print("♻️ Upgrading Database from $oldVersion to $newVersion");
+          await db.execute("DROP TABLE IF EXISTS student_profile");
+          await db.execute("DROP TABLE IF EXISTS attendance_cache");
+          await db.execute("DROP TABLE IF EXISTS complaints_cache");
+          await db.execute("DROP TABLE IF EXISTS maintenance_cache");
+          await db.execute("DROP TABLE IF EXISTS permissions_cache");
+          await db.execute("DROP TABLE IF EXISTS activities_cache");
+          await db.execute("DROP TABLE IF EXISTS clearance_cache");
+          await db.execute("DROP TABLE IF EXISTS announcements_cache");
+          // onCreate هينادى أوتوماتيك بعد الـ upgrade لو محتاج
+        }
     );
   }
 
-  // --- دالة عامة وذكية لتخزين أي بيانات (Batch Insert/Update) ---
   Future<void> cacheData(String tableName, List<Map<String, dynamic>> data) async {
     final db = await database;
     Batch batch = db.batch();
 
-    // 1. مسح البيانات القديمة (اختياري، حسب استراتيجية الكاش)
-    // هنا بنعتمد على الـ REPLACE عشان نحدث الموجود ونضيف الجديد
     for (var item in data) {
       batch.insert(
         tableName,
@@ -138,61 +155,52 @@ class LocalDBService {
     print("💾 Cached ${data.length} items into $tableName");
   }
 
-  // --- دوال الاسترجاع (Getters) ---
-
-  // 1. هات بروفايل الطالب
+  // ... باقي دوال الـ Getters زي ما هي ...
   Future<Map<String, dynamic>?> getStudentProfile() async {
     final db = await database;
     final res = await db.query('student_profile', limit: 1);
     return res.isNotEmpty ? res.first : null;
   }
 
-  // 2. هات سجل الغياب
   Future<List<Map<String, dynamic>>> getAttendanceLogs() async {
     final db = await database;
     return await db.query('attendance_cache', orderBy: "date DESC");
   }
 
-  // 3. هات الشكاوى
   Future<List<Map<String, dynamic>>> getComplaints() async {
     final db = await database;
     return await db.query('complaints_cache', orderBy: "id DESC");
   }
 
-  // 4. هات طلبات الصيانة
   Future<List<Map<String, dynamic>>> getMaintenanceRequests() async {
     final db = await database;
     return await db.query('maintenance_cache', orderBy: "id DESC");
   }
 
-  // 5. هات التصاريح
   Future<List<Map<String, dynamic>>> getPermissions() async {
     final db = await database;
     return await db.query('permissions_cache', orderBy: "start_date DESC");
   }
 
-  // 6. هات الأنشطة
   Future<List<Map<String, dynamic>>> getActivities() async {
     final db = await database;
     return await db.query('activities_cache', orderBy: "event_date ASC");
   }
 
-  // 7. هات الإعلانات
   Future<List<Map<String, dynamic>>> getAnnouncements() async {
     final db = await database;
     return await db.query('announcements_cache', orderBy: "created_at DESC");
   }
 
-  // 8. هات حالة إخلاء الطرف
   Future<Map<String, dynamic>?> getClearanceStatus() async {
     final db = await database;
     final res = await db.query('clearance_cache', limit: 1);
     return res.isNotEmpty ? res.first : null;
   }
 
-  // --- تنظيف البيانات عند تسجيل الخروج ---
   Future<void> clearAllData() async {
     final db = await database;
+    // نمسح البيانات بس من غير ما نمسح الجداول
     await db.delete('student_profile');
     await db.delete('attendance_cache');
     await db.delete('complaints_cache');

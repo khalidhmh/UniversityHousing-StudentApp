@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../../core/repositories/data_repository.dart';
+import '../../core/services/auth_service.dart';
 import 'maintenance_screen.dart';
 import 'complaints_history_screen.dart';
 import 'notifications_screen.dart';
 import 'clearance_screen.dart';
 import 'login_screen.dart';
+import '../../core/repositories/data_repository.dart';
 
 class MoreScreen extends StatelessWidget {
   const MoreScreen({super.key});
@@ -59,8 +61,7 @@ class MoreScreen extends StatelessWidget {
                           Navigator.push(
                             context,
                             MaterialPageRoute(
-                              builder: (context) =>
-                                  const NotificationsScreen(),
+                              builder: (context) => const NotificationsScreen(),
                             ),
                           );
                         },
@@ -192,11 +193,7 @@ class MoreScreen extends StatelessWidget {
                 color: iconColor.withOpacity(0.1),
                 shape: BoxShape.circle,
               ),
-              child: Icon(
-                icon,
-                color: iconColor,
-                size: 28,
-              ),
+              child: Icon(icon, color: iconColor, size: 28),
             ),
             const SizedBox(width: 16),
             // Title with Arrow
@@ -210,11 +207,7 @@ class MoreScreen extends StatelessWidget {
                 ),
               ),
             ),
-            Icon(
-              Icons.arrow_forward_ios,
-              color: Colors.grey[400],
-              size: 16,
-            ),
+            Icon(Icons.arrow_forward_ios, color: Colors.grey[400], size: 16),
           ],
         ),
       ),
@@ -270,9 +263,7 @@ class MoreScreen extends StatelessWidget {
             onPressed: () => Navigator.pop(context),
             child: Text(
               'حسناً',
-              style: GoogleFonts.cairo(
-                color: const Color(0xFF001F3F),
-              ),
+              style: GoogleFonts.cairo(color: const Color(0xFF001F3F)),
             ),
           ),
         ],
@@ -295,10 +286,7 @@ class MoreScreen extends StatelessWidget {
         Expanded(
           child: Text(
             value,
-            style: GoogleFonts.cairo(
-              fontSize: 13,
-              color: Colors.grey[700],
-            ),
+            style: GoogleFonts.cairo(fontSize: 13, color: Colors.grey[700]),
           ),
         ),
       ],
@@ -318,36 +306,31 @@ class MoreScreen extends StatelessWidget {
         ),
         content: Text(
           'هل تريد بالفعل تسجيل الخروج من التطبيق؟',
-          style: GoogleFonts.cairo(
-            fontSize: 14,
-            color: Colors.grey[700],
-          ),
+          style: GoogleFonts.cairo(fontSize: 14, color: Colors.grey[700]),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context),
             child: Text(
               'إلغاء',
-              style: GoogleFonts.cairo(
-                color: const Color(0xFF001F3F),
-              ),
+              style: GoogleFonts.cairo(color: const Color(0xFF001F3F)),
             ),
           ),
+          // ✅ NEW: Enhanced logout with clearSession()
           TextButton(
             onPressed: () async {
-              // Pop dialog first
-              Navigator.pop(context);
-              
-              // Clear all cached data before logout
-              print('🗑️ Clearing cache on logout...');
-              await DataRepository().clearCache();
-              
-              // Navigate to LoginScreen and remove all previous routes
+              Navigator.pop(context); // قفل الدايلوج
+
+              // ✅ Single call to clearSession() handles everything:
+              // 1. Clears SharedPreferences (auth_token, student_name, student_id, user_role, etc.)
+              // 2. Clears SQLite database (all tables)
+              final authService = AuthService();
+              await authService.clearSession();
+
+              // Navigate back to login with clean state
               Navigator.pushAndRemoveUntil(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const LoginScreen(),
-                ),
+                MaterialPageRoute(builder: (context) => const LoginScreen()),
                 (route) => false,
               );
             },
