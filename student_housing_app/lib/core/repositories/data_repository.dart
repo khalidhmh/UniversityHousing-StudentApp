@@ -39,11 +39,11 @@ class DataRepository {
   Future<Map<String, dynamic>> _fetchAndCacheStudentProfile() async {
     try {
       final apiResponse = await _apiService.get('/student/profile');
-      
+
       if (apiResponse['success'] == true && apiResponse['data'] != null) {
         final profileData = apiResponse['data'];
 
-        // Handle Housing Logic
+        // ✅ إصلاح منطق الغرفة والمبنى
         Map<String, dynamic> housingMap;
         if (profileData['housing'] != null) {
           housingMap = {
@@ -59,7 +59,10 @@ class DataRepository {
             'id': (profileData['id'] ?? '').toString(),
             'national_id': (profileData['national_id'] ?? '').toString(),
             'full_name': profileData['full_name'] ?? 'طالب',
-            // Store standardized housing info as JSON string
+            // ✅ تخزين البيانات الجديدة
+            'address': profileData['address'] ?? 'غير متوفر',
+            'housing_type': profileData['housing_type'] ?? 'سكن عادي',
+            'level': (profileData['level'] ?? 1).toString(),
             'room_json': jsonEncode(housingMap),
             'photo_url': ApiService.getImageUrl(profileData['photo_url']),
             'student_id': (profileData['student_id'] ?? profileData['national_id'] ?? '').toString(),

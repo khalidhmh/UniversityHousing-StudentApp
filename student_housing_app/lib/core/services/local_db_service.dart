@@ -17,37 +17,41 @@ class LocalDBService {
   }
 
   Future<Database> _initDatabase() async {
-    String path = join(await getDatabasesPath(), 'housing_local_v2.db'); // ✅ غيرنا الاسم عشان يعمل داتا بيز جديدة نظيفة
+    // ✅ تغيير الاسم لضمان إنشاء قاعدة بيانات جديدة بالأعمدة الجديدة
+    String path = join(await getDatabasesPath(), 'student_housing_v3.db');
 
     return await openDatabase(
-        path,
-        version: 2, // ✅ علينا الفيرجن
-        onCreate: (db, version) async {
-          print("📦 Creating Local Database Tables...");
+      path,
+      version: 1,
+      onCreate: (db, version) async {
+        print("📦 Creating Local Database Tables...");
 
-          // 1. Student Profile (تم إضافة student_id و college)
-          await db.execute('''
+        // 1. Student Profile (✅ تم إضافة الأعمدة الجديدة)
+        await db.execute('''
           CREATE TABLE student_profile (
             id TEXT PRIMARY KEY, 
             national_id TEXT, 
             full_name TEXT, 
-            room_json TEXT, 
-            photo_url TEXT,
             student_id TEXT, 
-            college TEXT
+            college TEXT,
+            level TEXT,          -- ✅ جديد
+            address TEXT,        -- ✅ جديد
+            housing_type TEXT,   -- ✅ جديد
+            room_json TEXT, 
+            photo_url TEXT
           )
         ''');
 
-          // 2. Attendance Cache
-          await db.execute('''
+        // 2. Attendance Cache
+        await db.execute('''
           CREATE TABLE attendance_cache (
             date TEXT PRIMARY KEY, 
             status TEXT
           )
         ''');
 
-          // 3. Complaints Cache
-          await db.execute('''
+        // 3. Complaints Cache
+        await db.execute('''
           CREATE TABLE complaints_cache (
             id INTEGER PRIMARY KEY, 
             title TEXT, 
@@ -59,8 +63,8 @@ class LocalDBService {
           )
         ''');
 
-          // 4. Maintenance Cache
-          await db.execute('''
+        // 4. Maintenance Cache
+        await db.execute('''
           CREATE TABLE maintenance_cache (
             id INTEGER PRIMARY KEY, 
             category TEXT, 
@@ -71,8 +75,8 @@ class LocalDBService {
           )
         ''');
 
-          // 5. Permissions Cache
-          await db.execute('''
+        // 5. Permissions Cache
+        await db.execute('''
           CREATE TABLE permissions_cache (
             id INTEGER PRIMARY KEY, 
             type TEXT, 
@@ -84,8 +88,8 @@ class LocalDBService {
           )
         ''');
 
-          // 6. Activities Cache
-          await db.execute('''
+        // 6. Activities Cache
+        await db.execute('''
           CREATE TABLE activities_cache (
             id INTEGER PRIMARY KEY, 
             title TEXT, 
@@ -94,12 +98,13 @@ class LocalDBService {
             location TEXT, 
             event_date TEXT,
             category TEXT,
-            is_subscribed INTEGER
+            is_subscribed INTEGER,
+            participant_count INTEGER
           )
         ''');
 
-          // 7. Clearance Cache
-          await db.execute('''
+        // 7. Clearance Cache
+        await db.execute('''
           CREATE TABLE clearance_cache (
             id INTEGER PRIMARY KEY, 
             status TEXT, 
@@ -109,8 +114,8 @@ class LocalDBService {
           )
         ''');
 
-          // 8. Announcements Cache (تم إضافة category و priority)
-          await db.execute('''
+        // 8. Announcements Cache
+        await db.execute('''
           CREATE TABLE announcements_cache (
             id INTEGER PRIMARY KEY, 
             title TEXT, 
@@ -121,27 +126,21 @@ class LocalDBService {
           )
         ''');
 
-          print("✅ Local Database Created Successfully");
-        },
-        onUpgrade: (db, oldVersion, newVersion) async {
-          // لو التحديث حصل واليوزر منزل التطبيق، بنمسح الجداول القديمة ونعملها من جديد
-          print("♻️ Upgrading Database from $oldVersion to $newVersion");
-          await db.execute("DROP TABLE IF EXISTS student_profile");
-          await db.execute("DROP TABLE IF EXISTS attendance_cache");
-          await db.execute("DROP TABLE IF EXISTS complaints_cache");
-          await db.execute("DROP TABLE IF EXISTS maintenance_cache");
-          await db.execute("DROP TABLE IF EXISTS permissions_cache");
-          await db.execute("DROP TABLE IF EXISTS activities_cache");
-          await db.execute("DROP TABLE IF EXISTS clearance_cache");
-          await db.execute("DROP TABLE IF EXISTS announcements_cache");
-          // onCreate هينادى أوتوماتيك بعد الـ upgrade لو محتاج
-        }
+        print("✅ Local Database Created Successfully");
+      },
     );
   }
+
+  // ===========================================================================
+  // CRUD Operations
+  // ===========================================================================
 
   Future<void> cacheData(String tableName, List<Map<String, dynamic>> data) async {
     final db = await database;
     Batch batch = db.batch();
+
+    // مسح البيانات القديمة لضمان عدم التكرار
+    await db.delete(tableName);
 
     for (var item in data) {
       batch.insert(
@@ -155,7 +154,8 @@ class LocalDBService {
     print("💾 Cached ${data.length} items into $tableName");
   }
 
-  // ... باقي دوال الـ Getters زي ما هي ...
+  // --- Getters ---
+
   Future<Map<String, dynamic>?> getStudentProfile() async {
     final db = await database;
     final res = await db.query('student_profile', limit: 1);
@@ -200,7 +200,6 @@ class LocalDBService {
 
   Future<void> clearAllData() async {
     final db = await database;
-    // نمسح البيانات بس من غير ما نمسح الجداول
     await db.delete('student_profile');
     await db.delete('attendance_cache');
     await db.delete('complaints_cache');

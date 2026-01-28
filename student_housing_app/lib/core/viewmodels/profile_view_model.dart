@@ -18,22 +18,39 @@ class ProfileViewModel extends ChangeNotifier {
 
   // Derived Getters (Safe Data Access)
   String get fullName => _studentData?['full_name'] ?? 'طالب';
-  String get college => _studentData?['college'] ?? 'جامعة القاهرة';
+  String get college => _studentData?['college'] ?? 'جامعة حلوان';
   String get nationalId => _studentData?['national_id'] ?? '---';
   String get studentId => _studentData?['student_id'] ?? _studentData?['national_id'] ?? '---';
   String get photoUrl => _studentData?['photo_url'] ?? '';
-  
+
+  // ... داخل كلاس ProfileViewModel
+
+  // ✅ 1. إصلاح الفرقة (Level)
   String get level => _studentData?['level']?.toString() ?? '---';
 
+  // ✅ 2. إضافة العنوان (Address)
+  String get address => _studentData?['address'] ?? 'العنوان غير مسجل';
+
+  // ✅ 3. إضافة نوع السكن (Housing Type)
+  String get housingType => _studentData?['housing_type'] ?? 'سكن عادي';
+
+  // ✅ 4. إصلاح منطق الغرفة والمبنى (Robust Parsing)
   String get housingInfo {
-    // Check if we have 'housing' object or older 'room_json'
     if (_studentData?['room_json'] != null) {
-       try {
-         final roomData = jsonDecode(_studentData!['room_json']);
-         return "مبنى (${roomData['building']}) - غرفة ${roomData['room_no']}";
-       } catch (e) {
-         return 'غير مسكن';
-       }
+      try {
+        // محاولة فك التشفير سواء كان JSON string أو Map مباشرة (للحماية)
+        final dynamic parsed = _studentData!['room_json'];
+        final Map<String, dynamic> roomData = (parsed is String) ? jsonDecode(parsed) : parsed;
+
+        final building = roomData['building'] ?? '---';
+        final room = roomData['room_no'] ?? '---';
+
+        if (building == '---' && room == '---') return 'غير مسكن';
+
+        return "مبنى ($building) - غرفة $room";
+      } catch (e) {
+        return 'غير مسكن';
+      }
     }
     return 'غير مسكن';
   }
