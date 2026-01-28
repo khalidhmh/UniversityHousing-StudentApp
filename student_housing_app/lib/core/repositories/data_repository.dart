@@ -21,10 +21,15 @@ class DataRepository {
   Future<Map<String, dynamic>> getStudentProfile() async {
     try {
       final cachedProfile = await _localDBService.getStudentProfile();
+      
       if (cachedProfile != null) {
-        _fetchAndCacheStudentProfile();
+        // Cache-First: Return cached data immediately
+        // Fire-and-forget API call to refresh data in background
+        _fetchAndCacheStudentProfile(); 
         return {'success': true, 'data': cachedProfile, 'fromCache': true};
       }
+      
+      // If no cache, await API call
       return await _fetchAndCacheStudentProfile();
     } catch (e) {
       return {'success': false, 'message': 'Error: $e'};
@@ -34,17 +39,28 @@ class DataRepository {
   Future<Map<String, dynamic>> _fetchAndCacheStudentProfile() async {
     try {
       final apiResponse = await _apiService.get('/student/profile');
+      
       if (apiResponse['success'] == true && apiResponse['data'] != null) {
         final profileData = apiResponse['data'];
+
+        // Handle Housing Logic
+        Map<String, dynamic> housingMap;
+        if (profileData['housing'] != null) {
+          housingMap = {
+            'building': profileData['housing']['building'] ?? '---',
+            'room_no': profileData['housing']['room'] ?? '---'
+          };
+        } else {
+          housingMap = {'room_no': 'غير مسكن', 'building': '---'};
+        }
 
         await _localDBService.cacheData('student_profile', [
           {
             'id': (profileData['id'] ?? '').toString(),
             'national_id': (profileData['national_id'] ?? '').toString(),
             'full_name': profileData['full_name'] ?? 'طالب',
-            'room_json': profileData['room'] != null
-                ? (profileData['room'] is String ? profileData['room'] : jsonEncode(profileData['room']))
-                : jsonEncode({'room_no': 'غير مسكن', 'building': '---'}),
+            // Store standardized housing info as JSON string
+            'room_json': jsonEncode(housingMap),
             'photo_url': ApiService.getImageUrl(profileData['photo_url']),
             'student_id': (profileData['student_id'] ?? profileData['national_id'] ?? '').toString(),
             'college': profileData['college'] ?? '',
