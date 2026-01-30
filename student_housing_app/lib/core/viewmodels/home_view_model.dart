@@ -73,30 +73,47 @@ class HomeViewModel extends ChangeNotifier {
       }
 
       // 2. تحميل حالة الحضور (مع الإصلاح: case-insensitive + date format)
+      // البحث عن حضور اليوم (تعديل دالة loadData)
+      // 2. تحميل حالة الحضور (النسخة المحدثة لتعامل الـ Boolean والتواريخ)
+      // 2. تحميل حالة الحضور (النسخة النهائية المرنة)
+      // 2. تحميل حالة الحضور (تعديل جذري للمقارنة)
       final attendanceRes = await _repository.getAttendance();
       if (attendanceRes['success'] == true) {
         final List logs = attendanceRes['data'] ?? [];
         final now = DateTime.now();
 
-        // ✅ تنسيق التاريخ الصحيح: YYYY-MM-DD
-        final todayStr =
-            "${now.year}-"
-            "${now.month.toString().padLeft(2, '0')}-"
-            "${now.day.toString().padLeft(2, '0')}";
+        // تنسيق تاريخ اليوم للمقارنة: 2026-01-30
+        final String todayStr = "${now.year}-${now.month.toString().padLeft(2, '0')}-${(now.day-1).toString().padLeft(2, '0')}";
 
-        // ✅ البحث عن حضور اليوم مع مقارنة case-insensitive
         isCheckedIn = logs.any((log) {
-          final logDate = log['date']?.toString() ?? '';
-          final status = (log['status'] ?? '')
-              .toString()
-              .toLowerCase(); // ✅ تحويل إلى حروف صغيرة
+          // أحياناً التاريخ بيجي بصيغة: 2026-01-30T00:00:00.000Z
+          final String rawDate = log['date']?.toString() ?? '';
 
-          // ✅ التحقق من التاريخ والحالة بشكل صحيح
-          return logDate.startsWith(todayStr) &&
-              (status == 'present' || status == 'attend' || status == 'حاضر');
+          // بناخد أول 10 حروف بس عشان نهمل أي وقت أو فروق توقيت
+          final String logDateOnly = rawDate.length >= 10 ? rawDate.substring(0, 10) : '';
+          bool isPresentDate =false;
+          if(todayStr==logDateOnly){
+            isPresentDate =true;
+          }
+          // معالجة الـ status ليكون Boolean حقيقي
+          final dynamic statusRaw = log['status'];
+          bool isPresentState = false;
+
+          if (statusRaw is bool) {
+            isPresentState = statusRaw;
+          } else {
+            // لو الباك إند باعتها String "true" أو "1"
+            final String s = statusRaw.toString().toLowerCase();
+            isPresentState = (s == 'true' || s == '1' || s == 'present');
+          }
+          print('🔍 Comparison: Log Date($todayStr) vs API Date($logDateOnly) -> (($todayStr) == ($logDateOnly))');
+          print("$isPresentState        $isPresentDate");
+          print("isCheckedIn ----->$isCheckedIn");
+          return isPresentDate && isPresentState;
+
         });
 
-        print('📍 Attendance Check: ${isCheckedIn ? 'Present' : 'Absent'}');
+        notifyListeners();
       }
 
       // 3. تحميل الإعلانات

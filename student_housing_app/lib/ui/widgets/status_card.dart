@@ -6,12 +6,11 @@ class StatusCard extends StatelessWidget {
   final String title;
   final String subtitle;
   final IconData icon;
-  final Color color;        // لون الأيقونة والنصوص المميزة
-  final Color backgroundColor; // لون خلفية الأيقونة
+  final Color color;
+  final Color backgroundColor;
   final String qrData;
   final VoidCallback onQrTap;
 
-  // حاجات خاصة بالمنبه (اختياري)
   final bool showAlarm;
   final bool isAlarmSet;
   final VoidCallback? onAlarmTap;
@@ -32,10 +31,12 @@ class StatusCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // ✅ تحسين بسيط: تحديد لو الحالة "تم التمام" عشان نتحكم في عرض النصوص
+    final bool isCheckedIn = color == Colors.green;
+
     return Stack(
       alignment: Alignment.topCenter,
       children: [
-        // الجزء الخلفي (الأزرق الغامق)
         Container(
           height: 80,
           decoration: const BoxDecoration(
@@ -46,7 +47,6 @@ class StatusCard extends StatelessWidget {
             ),
           ),
         ),
-        // الكارت الأبيض العائم
         Container(
           margin: const EdgeInsets.fromLTRB(20, 10, 20, 0),
           padding: const EdgeInsets.all(20),
@@ -63,7 +63,6 @@ class StatusCard extends StatelessWidget {
           ),
           child: Row(
             children: [
-              // 1. الأيقونة الملونة
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
@@ -75,8 +74,6 @@ class StatusCard extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 15),
-
-              // 2. النصوص وزر المنبه
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -85,7 +82,7 @@ class StatusCard extends StatelessWidget {
                       children: [
                         Text("حالة التمام اليوم", style: GoogleFonts.cairo(color: Colors.grey, fontSize: 12)),
                         const Spacer(),
-                        // زر المنبه (يظهر فقط لو showAlarm = true)
+                        // زر المنبه يظهر فقط في حالة (في انتظار التمام)
                         if (showAlarm && onAlarmTap != null)
                           GestureDetector(
                             onTap: onAlarmTap,
@@ -124,7 +121,8 @@ class StatusCard extends StatelessWidget {
                     Text(
                       subtitle,
                       style: GoogleFonts.cairo(
-                          color: color == Colors.green ? Colors.grey : color, // لو أخضر خليه رمادي، لو أحمر خليه أحمر
+                        // ✅ لو الطالب حضر (أخضر) بنخلي النص رمادي هادي، لو غايب (أحمر) بنسيبه أحمر عشان ينبهه
+                          color: isCheckedIn ? Colors.grey : color,
                           fontSize: 10,
                           fontWeight: FontWeight.bold
                       ),
@@ -132,10 +130,7 @@ class StatusCard extends StatelessWidget {
                   ],
                 ),
               ),
-
               const SizedBox(width: 10),
-
-              // 3. QR Code الصغير
               GestureDetector(
                 onTap: onQrTap,
                 child: Container(
