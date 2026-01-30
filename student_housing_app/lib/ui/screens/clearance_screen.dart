@@ -1,14 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:animate_do/animate_do.dart';
 import 'package:provider/provider.dart';
-import '../widgets/pull_to_refresh.dart';
-import '../widgets/clearance/clearance_request_card.dart';
-import '../widgets/clearance/clearance_timeline_card.dart';
-import '../../../core/viewmodels/clearance_view_model.dart';
+import '../../core/viewmodels/clearance_view_model.dart';
+// import '../widgets/clearance/clearance_timeline_card.dart'; // تأكد من المسار
 
 class ClearanceScreen extends StatefulWidget {
-  const ClearanceScreen({super.key});
+  const ClearanceScreen({Key? key}) : super(key: key);
 
   @override
   State<ClearanceScreen> createState() => _ClearanceScreenState();
@@ -18,181 +14,165 @@ class _ClearanceScreenState extends State<ClearanceScreen> {
   @override
   void initState() {
     super.initState();
-    // Load clearance status when screen initializes
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ClearanceViewModel>().loadStatus();
+      context.read<ClearanceViewModel>().loadClearanceStatus();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      extendBodyBehindAppBar: true,
+      backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
+        title: const Text('إخلاء الطرف', style: TextStyle(color: Colors.black)),
+        centerTitle: true,
         backgroundColor: Colors.transparent,
         elevation: 0,
-        title: FadeInDown(
-          delay: const Duration(milliseconds: 200),
-          child: Text(
-            "إخلاء الطرف",
-            style: GoogleFonts.cairo(
-              fontWeight: FontWeight.bold,
-              color: Colors.white,
-            ),
-          ),
-        ),
-        centerTitle: true,
-        leading: FadeInDown(
-          delay: const Duration(milliseconds: 200),
-          child: IconButton(
-            icon: const Icon(Icons.arrow_back, color: Colors.white),
-            onPressed: () => Navigator.pop(context),
-          ),
-        ),
+        iconTheme: const IconThemeData(color: Colors.black),
       ),
-      body: Stack(
-        children: [
-          // Gradient background
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFF001F3F),
-                  Color(0xFFF5F7FA),
-                ],
-                stops: [0.2, 0.5],
-              ),
-            ),
-          ),
+      body: Consumer<ClearanceViewModel>(
+        builder: (context, vm, child) {
+          if (vm.isLoading) {
+            return const Center(child: CircularProgressIndicator());
+          }
 
-          // Content with ListenableBuilder
-          Align(
-            alignment: Alignment.topCenter,
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: ListenableBuilder(
-                listenable: context.read<ClearanceViewModel>(),
-                builder: (context, _) {
-                  final viewModel = context.read<ClearanceViewModel>();
-
-                  return PullToRefresh(
-                    onRefresh: () async {
-                      await viewModel.loadStatus();
+          // الحالة 1: لم يبدأ الإخلاء بعد
+          if (vm.status == 'none') {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.assignment_return_outlined, size: 80, color: Colors.grey),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'لم تقم ببدء إجراءات الإخلاء بعد',
+                    style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 30),
+                  ElevatedButton.icon(
+                    onPressed: () async {
+                      await vm.initiateClearance();
                     },
-                    child: SingleChildScrollView(
-                      child: Column(
-                        children: [
-                          const SizedBox(height: 110),
-                          SlideInUp(
-                            duration: const Duration(milliseconds: 600),
-                            from: 100,
-                            child: Padding(
-                              padding:
-                                  const EdgeInsets.symmetric(horizontal: 20),
-                              child: _buildContent(viewModel),
-                            ),
-                          ),
-                          const SizedBox(height: 40),
-                        ],
-                      ),
+                    icon: const Icon(Icons.play_arrow),
+                    label: const Text('بدء إجراءات الإخلاء'),
+                    style: ElevatedButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 12),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                     ),
-                  );
-                },
+                  )
+                ],
               ),
+            );
+          }
+
+          // الحالة 2: يوجد طلب (سواء معلق، مقبول، أو مرفوض)
+          return Padding(
+            padding: const EdgeInsets.all(20.0),
+            child: Column(
+              children: [
+                // كارت الحالة
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: _getStatusColor(vm.status),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Row(
+                    children: [
+                      Icon(_getStatusIcon(vm.status), color: Colors.white, size: 40),
+                      const SizedBox(width: 15),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('حالة الطلب', style: TextStyle(color: Colors.white70, fontSize: 14)),
+                          Text(
+                            _getStatusText(vm.status),
+                            style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.bold),
+                          ),
+                        ],
+                      )
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 30),
+
+                // الخطوات (Stepper)
+                Expanded(
+                  child: Stepper(
+                    currentStep: vm.currentStep,
+                    controlsBuilder: (context, details) => Container(), // إخفاء أزرار الـ Stepper الافتراضية
+                    steps: [
+                      Step(
+                        title: const Text('تقديم الطلب'),
+                        content: const Text('تم تقديم طلب الإخلاء بنجاح للمشرف المختص.'),
+                        isActive: vm.currentStep >= 0,
+                        state: vm.currentStep > 0 ? StepState.complete : StepState.indexed,
+                      ),
+                      Step(
+                        title: const Text('مراجعة المشرف & فحص الغرفة'),
+                        content: const Text('جاري مراجعة العهدة وفحص الغرفة من قبل المشرف.'),
+                        isActive: vm.currentStep >= 1,
+                        state: vm.currentStep > 1 ? StepState.complete : (vm.status == 'pending' ? StepState.editing : StepState.indexed),
+                      ),
+                      Step(
+                        title: const Text('إتمام الإخلاء'),
+                        content: Text(vm.status == 'approved' ? 'تم اعتماد الإخلاء بنجاح.' : 'في انتظار الاعتماد النهائي.'),
+                        isActive: vm.currentStep >= 2,
+                        state: vm.status == 'approved' ? StepState.complete : StepState.indexed,
+                      ),
+                    ],
+                  ),
+                ),
+
+                // عرض ملاحظات المشرف في حالة الرفض
+                if (vm.status == 'rejected' && vm.notes.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(15),
+                    decoration: BoxDecoration(
+                      color: Colors.red.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.red.shade200),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(Icons.info_outline, color: Colors.red),
+                        const SizedBox(width: 10),
+                        Expanded(child: Text('ملاحظات المشرف: ${vm.notes}')),
+                      ],
+                    ),
+                  ),
+              ],
             ),
-          ),
-        ],
+          );
+        },
       ),
     );
   }
 
-  /// Build content based on viewModel state
-  Widget _buildContent(ClearanceViewModel viewModel) {
-    // Loading state
-    if (viewModel.isLoading) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(vertical: 80, horizontal: 20),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 20),
-            Text(
-              'جاري التحميل...',
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      );
+  Color _getStatusColor(String status) {
+    switch (status) {
+      case 'approved': return Colors.green;
+      case 'rejected': return Colors.red;
+      case 'pending': return Colors.orange;
+      default: return Colors.blue;
     }
+  }
 
-    // Error state
-    if (viewModel.errorMessage != null) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(25),
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(20),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black.withOpacity(0.1),
-              blurRadius: 25,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        child: Column(
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Colors.red[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              viewModel.errorMessage!,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                color: Colors.red[400],
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                viewModel.loadStatus();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF001F3F),
-              ),
-              child: Text(
-                'إعادة محاولة',
-                style: GoogleFonts.cairo(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
+  IconData _getStatusIcon(String status) {
+    switch (status) {
+      case 'approved': return Icons.check_circle;
+      case 'rejected': return Icons.cancel;
+      case 'pending': return Icons.hourglass_top;
+      default: return Icons.info;
     }
+  }
 
-    // State A: No active request - show ClearanceRequestCard
-    if (!viewModel.hasActiveRequest) {
-      return const ClearanceRequestCard();
+  String _getStatusText(String status) {
+    switch (status) {
+      case 'approved': return 'تم الإخلاء';
+      case 'rejected': return 'مرفوض';
+      case 'pending': return 'قيد المراجعة';
+      default: return 'غير معروف';
     }
-
-    // State B: Active request - show ClearanceTimelineCard
-    return ClearanceTimelineCard(
-      clearanceData: viewModel.clearanceData,
-    );
   }
 }

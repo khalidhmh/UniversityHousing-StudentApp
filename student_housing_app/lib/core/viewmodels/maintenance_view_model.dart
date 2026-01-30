@@ -1,114 +1,97 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import '../repositories/data_repository.dart';
 
 class MaintenanceViewModel extends ChangeNotifier {
-  // ============================================================================
-  // DEPENDENCIES
-  // ============================================================================
-  final DataRepository _dataRepository = DataRepository();
-
-  // ============================================================================
-  // STATE VARIABLES
-  // ============================================================================
-  List<Map<String, dynamic>> _maintenanceRequests = [];
+  final DataRepository _repository = DataRepository();
 
   bool _isLoading = false;
-  bool _isSubmitting = false;
   String? _errorMessage;
-  String? _successMessage;
+  List<Map<String, dynamic>> _requests = [];
 
-  // ============================================================================
-  // GETTERS
-  // ============================================================================
-  List<Map<String, dynamic>> get maintenanceRequests => _maintenanceRequests;
+  // حقول الإدخال
+  File? _selectedImage;
+  String _selectedLocationType = 'room';
+
   bool get isLoading => _isLoading;
-  bool get isSubmitting => _isSubmitting;
   String? get errorMessage => _errorMessage;
-  String? get successMessage => _successMessage;
-  int get requestCount => _maintenanceRequests.length;
+  List<Map<String, dynamic>> get requests => _requests;
+  File? get selectedImage => _selectedImage;
+  String get selectedLocationType => _selectedLocationType;
 
-  // ============================================================================
-  // PUBLIC METHODS
-  // ============================================================================
-
-  /// Fetch maintenance requests
-  Future<void> getMaintenanceRequests() async {
+  // تحميل الطلبات
+  Future<void> loadRequests() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      final result = await _dataRepository.getMaintenance();
-
-      if (result['success'] == true) {
-        _maintenanceRequests = List<Map<String, dynamic>>.from(result['data'] ?? []);
-        _errorMessage = null;
-        print('✅ Maintenance requests loaded (${_maintenanceRequests.length} items)');
+      final result = await _repository.getMaintenance();
+      if (result['success']) {
+        _requests = List<Map<String, dynamic>>.from(result['data']);
       } else {
-        if (_maintenanceRequests.isEmpty) {
-          _errorMessage = result['message'] ?? 'فشل تحميل طلبات الصيانة';
-        }
+        _errorMessage = result['message'];
       }
     } catch (e) {
-      if (_maintenanceRequests.isEmpty) {
-        _errorMessage = 'حدث خطأ: $e';
-      }
-      print('❌ Error loading maintenance: $e');
-    } finally {
-      _isLoading = false;
-      notifyListeners();
+      _errorMessage = 'فشل تحميل البيانات';
     }
+
+    _isLoading = false;
+    notifyListeners();
   }
 
-  /// Submit a new maintenance request
+  // إدارة الصورة
+  void setImage(File image) {
+    _selectedImage = image;
+    notifyListeners();
+  }
+
+  void clearImage() {
+    _selectedImage = null;
+    notifyListeners();
+  }
+
+  void setLocationType(String type) {
+    _selectedLocationType = type;
+    notifyListeners();
+  }
+
+  // إرسال الطلب
   Future<bool> submitRequest({
     required String category,
     required String description,
+    required String locationDetails
   }) async {
-    if (category.isEmpty || description.isEmpty) {
-      _errorMessage = 'يرجى ملء نوع الصيانة والوصف';
-      notifyListeners();
-      return false;
-    }
-
-    _isSubmitting = true;
-    _errorMessage = null;
-    _successMessage = null;
+    _isLoading = true;
     notifyListeners();
 
     try {
-      final result = await _dataRepository.submitMaintenance(
-        category: category,
-        description: description,
+      final result = await _repository.submitMaintenance(
+          category: category,
+          description: description,
+          locationType: _selectedLocationType,
+          locationDetails: locationDetails,
+          image: _selectedImage
       );
 
-      if (result['success'] == true) {
-        _successMessage = 'تم إرسال طلب الصيانة بنجاح';
-
-        // Refresh list
-        await getMaintenanceRequests();
-
+      if (result['success']) {
+        await loadRequests();
+        clearImage();
+        _selectedLocationType = 'room';
+        _isLoading = false;
+        notifyListeners();
         return true;
       } else {
-        _errorMessage = result['message'] ?? 'فشل إرسال الطلب';
+        _errorMessage = result['message'];
+        _isLoading = false;
+        notifyListeners();
         return false;
       }
     } catch (e) {
-      _errorMessage = 'حدث خطأ أثناء الإرسال: $e';
-      return false;
-    } finally {
-      _isSubmitting = false;
+      _errorMessage = 'حدث خطأ في الاتصال';
+      _isLoading = false;
       notifyListeners();
+      return false;
     }
-  }
-
-  void clearSuccessMessage() {
-    _successMessage = null;
-    notifyListeners();
-  }
-
-  void clearErrorMessage() {
-    _errorMessage = null;
-    notifyListeners();
   }
 }

@@ -1,436 +1,203 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:image_picker/image_picker.dart'; // ⚠️ تأكد من إضافة هذه المكتبة في pubspec.yaml
 import '../../../core/viewmodels/maintenance_view_model.dart';
+import 'package:google_fonts/google_fonts.dart';
 
-/// MaintenanceFormBottomSheet: Reusable bottom sheet for submitting maintenance requests
-/// 
-/// Features:
-/// - Category grid selection
-/// - Description text field
-/// - Photo upload placeholder
-/// - Loading spinner on submit
-/// - Success/Error dialogs
 class MaintenanceFormBottomSheet extends StatefulWidget {
-  const MaintenanceFormBottomSheet({super.key});
+  const MaintenanceFormBottomSheet({Key? key}) : super(key: key);
 
   @override
   State<MaintenanceFormBottomSheet> createState() => _MaintenanceFormBottomSheetState();
 }
 
 class _MaintenanceFormBottomSheetState extends State<MaintenanceFormBottomSheet> {
-  String? _selectedCategory;
-  final TextEditingController _descriptionController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  final _detailsController = TextEditingController();
+  String _selectedCategory = 'electricity'; // Default value matching DB Enum
 
-  final List<String> _categories = [
-    'سباكة',
-    'كهرباء',
-    'نجارة',
-    'ألوميتال',
-    'غاز',
-  ];
+  // قائمة أنواع الصيانة المتوافقة مع الداتا بييز
+  final Map<String, String> _categories = {
+    'electricity': 'كهرباء',
+    'plumbing': 'سباكة',
+    'carpentry': 'نجارة',
+    'aluminum': 'ألوميتال',
+    'gas': 'غاز',
+    'internet': 'إنترنت',
+  };
 
-  @override
-  void dispose() {
-    _descriptionController.dispose();
-    super.dispose();
+  // قائمة أنواع الأماكن
+  final Map<String, String> _locations = {
+    'room': 'الغرفة',
+    'bathroom': 'الحمام',
+    'kitchen': 'المطبخ',
+    'hallway': 'الطرقة',
+    'office': 'أوفيس',
+  };
+
+  // دالة اختيار الصورة
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    final XFile? image = await picker.pickImage(source: ImageSource.gallery);
+    
+    if (image != null) {
+      if (!mounted) return;
+      context.read<MaintenanceViewModel>().setImage(File(image.path));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return ListenableBuilder(
-      listenable: context.read<MaintenanceViewModel>(),
-      builder: (context, _) {
-        final viewModel = context.read<MaintenanceViewModel>();
-        return SingleChildScrollView(
-          child: Container(
-            padding: EdgeInsets.only(
-              left: 20,
-              right: 20,
-              top: 20,
-              bottom: MediaQuery.of(context).viewInsets.bottom + 20,
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Header Section
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF001F3F),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'الإبلاغ عن الأعطال',
-                        style: GoogleFonts.cairo(
-                          fontSize: 18,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 8),
-                      Text(
-                        'اختر نوع العطل لنقوم بإرسال الفني المختص',
-                        style: GoogleFonts.cairo(
-                          fontSize: 13,
-                          color: Colors.white70,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
+    final vm = context.watch<MaintenanceViewModel>();
 
-                // Category Grid
-                Text(
-                  'نوع العطل',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF001F3F),
+    return Container(
+      height: MediaQuery.of(context).size.height * 0.85,
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.vertical(top: Radius.circular(25)),
+      ),
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        children: [
+          // Header
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              const Text('طلب صيانة جديد', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
+              IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(context)),
+            ],
+          ),
+          const Divider(),
+          
+          Expanded(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. نوع الصيانة
+                  const Text('نوع الصيانة', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: _selectedCategory,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                    ),
+                    items: _categories.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+                    onChanged: (val) => setState(() => _selectedCategory = val!),
                   ),
-                ),
-                const SizedBox(height: 12),
-                GridView.count(
-                  crossAxisCount: 3,
-                  shrinkWrap: true,
-                  physics: const NeverScrollableScrollPhysics(),
-                  mainAxisSpacing: 12,
-                  crossAxisSpacing: 12,
-                  children: List.generate(_categories.length, (index) {
-                    String category = _categories[index];
-                    bool isSelected = _selectedCategory == category;
+                  const SizedBox(height: 15),
 
-                    return GestureDetector(
-                      onTap: () {
-                        setState(() {
-                          _selectedCategory = category;
-                        });
-                      },
-                      child: Container(
-                        decoration: BoxDecoration(
-                          color: isSelected
-                              ? const Color(0xFFFFF9E6)
-                              : Colors.white,
-                          border: Border.all(
-                            color: isSelected
-                                ? const Color(0xFFF2C94C)
-                                : Colors.grey[300]!,
-                            width: isSelected ? 2 : 1,
-                          ),
-                          borderRadius: BorderRadius.circular(12),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(
-                                isSelected ? 0.12 : 0.06,
-                              ),
-                              blurRadius: isSelected ? 8 : 4,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              _getCategoryIcon(category),
-                              size: 32,
-                              color: isSelected
-                                  ? const Color(0xFFF2C94C)
-                                  : const Color(0xFF001F3F),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              category,
-                              textAlign: TextAlign.center,
-                              style: GoogleFonts.cairo(
-                                fontSize: 12,
-                                fontWeight: FontWeight.bold,
-                                color: const Color(0xFF001F3F),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                ),
-                const SizedBox(height: 20),
-
-                // Description Field
-                Text(
-                  'وصف العطل',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF001F3F),
+                  // 2. مكان العطل (Dropdown جديد)
+                  const Text('مكان العطل', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 8),
+                  DropdownButtonFormField<String>(
+                    value: vm.selectedLocationType,
+                    decoration: InputDecoration(
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                      contentPadding: const EdgeInsets.symmetric(horizontal: 15, vertical: 5),
+                    ),
+                    items: _locations.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+                    onChanged: (val) => vm.setLocationType(val!),
                   ),
-                ),
-                const SizedBox(height: 8),
-                Container(
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(
-                      color: Colors.grey[300]!,
-                      width: 1,
+                  const SizedBox(height: 15),
+
+                  // 3. تفاصيل المكان
+                  const Text('تفاصيل المكان (الدور، رقم الغرفة...)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextField(
+                    controller: _detailsController,
+                    decoration: InputDecoration(
+                      hintText: 'مثال: الدور الثالث، حمام يمين',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                  child: TextField(
+                  const SizedBox(height: 15),
+
+                  // 4. وصف المشكلة
+                  const Text('وصف المشكلة', style: TextStyle(fontWeight: FontWeight.bold)),
+                  TextField(
                     controller: _descriptionController,
                     maxLines: 3,
-                    style: GoogleFonts.cairo(),
                     decoration: InputDecoration(
-                      hintText: 'اكتب تفاصيل العطل هنا...',
-                      hintStyle: GoogleFonts.cairo(
-                        color: Colors.grey,
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.all(12),
+                      hintText: 'اشرح العطل بالتفصيل...',
+                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
                     ),
                   ),
-                ),
-                const SizedBox(height: 20),
+                  const SizedBox(height: 15),
 
-                // Photo Upload
-                Text(
-                  'الصورة (اختيارية)',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF001F3F),
-                  ),
-                ),
-                const SizedBox(height: 8),
-                GestureDetector(
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'تحميل الصورة - قيد التطوير',
-                          style: GoogleFonts.cairo(),
-                        ),
-                        backgroundColor: Colors.blue,
+                  // 5. إرفاق صورة (الجديد)
+                  const Text('إرفاق صورة (اختياري)', style: TextStyle(fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: _pickImage,
+                    child: Container(
+                      height: 150,
+                      width: double.infinity,
+                      decoration: BoxDecoration(
+                        color: Colors.grey[100],
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.grey.shade300, style: BorderStyle.solid),
                       ),
-                    );
-                  },
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(vertical: 30),
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(10),
-                      border: Border.all(
-                        color: const Color(0xFF001F3F),
-                        width: 2,
-                        strokeAlign: BorderSide.strokeAlignInside,
-                      ),
-                    ),
-                    child: Column(
-                      children: [
-                        const Icon(
-                          Icons.camera_alt,
-                          size: 40,
-                          color: Color(0xFF001F3F),
-                        ),
-                        const SizedBox(height: 8),
-                        Text(
-                          'التقاط صورة أو رفع ملف',
-                          style: GoogleFonts.cairo(
-                            fontSize: 13,
-                            color: const Color(0xFF001F3F),
-                            fontWeight: FontWeight.w500,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 24),
-
-                // Submit Button with Loading State
-                SizedBox(
-                  width: double.infinity,
-                  height: 50,
-                  child: ElevatedButton(
-                    onPressed: viewModel.isSubmitting ? null : _submitRequest,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFFF2C94C),
-                      disabledBackgroundColor: Colors.grey[400],
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                    ),
-                    child: viewModel.isSubmitting
-                        ? SizedBox(
-                            height: 24,
-                            width: 24,
-                            child: CircularProgressIndicator(
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                Colors.grey[600]!,
-                              ),
-                              strokeWidth: 2,
+                      child: vm.selectedImage != null
+                          ? ClipRRect(
+                              borderRadius: BorderRadius.circular(12),
+                              child: Image.file(vm.selectedImage!, fit: BoxFit.cover),
+                            )
+                          : Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: const [
+                                Icon(Icons.add_a_photo, size: 40, color: Colors.blue),
+                                SizedBox(height: 5),
+                                Text('اضغط لاختيار صورة', style: TextStyle(color: Colors.grey)),
+                              ],
                             ),
-                          )
-                        : Text(
-                            'إرسال البلاغ',
-                            style: GoogleFonts.cairo(
-                              fontSize: 16,
-                              fontWeight: FontWeight.bold,
-                              color: const Color(0xFF001F3F),
-                            ),
-                          ),
+                    ),
                   ),
-                ),
-              ],
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  /// Submit maintenance request
-  Future<void> _submitRequest() async {
-    final viewModel = context.read<MaintenanceViewModel>();
-
-    // Validate inputs
-    if (_selectedCategory == null || _descriptionController.text.isEmpty) {
-      _showErrorDialog('يرجى اختيار نوع العطل وكتابة الوصف');
-      return;
-    }
-
-    // Submit request via ViewModel
-    final success = await viewModel.submitRequest(
-      category: _selectedCategory!,
-      description: _descriptionController.text,
-    );
-
-    if (success && mounted) {
-      // Show success dialog
-      _showSuccessDialog('تم إرسال طلب الصيانة بنجاح');
-      
-      // Reset form
-      _descriptionController.clear();
-      setState(() {
-        _selectedCategory = null;
-      });
-
-      // Close bottom sheet after a short delay
-      Future.delayed(const Duration(milliseconds: 500), () {
-        if (mounted) {
-          Navigator.pop(context);
-        }
-      });
-    } else if (viewModel.errorMessage != null) {
-      _showErrorDialog(viewModel.errorMessage!);
-    }
-  }
-
-  /// Show success dialog
-  void _showSuccessDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFE8F5E9),
-        title: Row(
-          children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'نجح',
-                style: GoogleFonts.cairo(
-                  color: Colors.green[900],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.cairo(
-            color: Colors.green[900],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'حسناً',
-              style: GoogleFonts.cairo(
-                color: Colors.green[900],
-                fontWeight: FontWeight.bold,
+                  if (vm.selectedImage != null)
+                    TextButton.icon(
+                      onPressed: () => vm.clearImage(),
+                      icon: const Icon(Icons.delete, color: Colors.red),
+                      label: const Text('حذف الصورة', style: TextStyle(color: Colors.red)),
+                    ),
+                ],
               ),
             ),
           ),
+
+          // زر الإرسال
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            height: 50,
+            child: ElevatedButton(
+              onPressed: vm.isLoading ? null : () async {
+                if (_descriptionController.text.isEmpty) {
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('يرجى كتابة وصف للمشكلة')));
+                  return;
+                }
+
+                final success = await vm.submitRequest(
+                  category: _selectedCategory,
+                  description: _descriptionController.text,
+                  locationDetails: _detailsController.text.isEmpty ? 'غير محدد' : _detailsController.text,
+                );
+
+                if (success && mounted) {
+                  Navigator.pop(context);
+                  ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('تم إرسال الطلب بنجاح'), backgroundColor: Colors.green));
+                }
+              },
+              style: ElevatedButton.styleFrom(
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: vm.isLoading 
+                ? const CircularProgressIndicator(color: Colors.white) 
+                : const Text('إرسال الطلب', style: TextStyle(fontSize: 16)),
+            ),
+          )
         ],
       ),
     );
-  }
-
-  /// Show error dialog
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFFFEBEE),
-        title: Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.red, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'خطأ',
-                style: GoogleFonts.cairo(
-                  color: Colors.red[900],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.cairo(
-            color: Colors.red[900],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'حسناً',
-              style: GoogleFonts.cairo(
-                color: Colors.red[900],
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Get icon for category
-  IconData _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'كهرباء':
-        return Icons.electrical_services;
-      case 'سباكة':
-        return Icons.plumbing;
-      case 'نجارة':
-        return Icons.handyman;
-      case 'ألوميتال':
-        return Icons.window;
-      case 'غاز':
-        return Icons.gas_meter;
-      default:
-        return Icons.build;
-    }
   }
 }

@@ -6,6 +6,9 @@ class LocalDBService {
   static final LocalDBService _instance = LocalDBService._internal();
   static Database? _database;
 
+  // getter لسهولة الوصول لقاعدة البيانات من خارج الكلاس لو احتجت
+  Database? get localDatabase => _database;
+
   factory LocalDBService() => _instance;
 
   LocalDBService._internal();
@@ -17,16 +20,16 @@ class LocalDBService {
   }
 
   Future<Database> _initDatabase() async {
-    // ✅ تغيير الاسم لضمان إنشاء قاعدة بيانات جديدة بالأعمدة الجديدة
-    String path = join(await getDatabasesPath(), 'student_housing_v3.db');
+    // ✅ غيرنا الاسم لـ v4 عشان نجبر التطبيق يعمل جداول جديدة بالنظام الجديد
+    String path = join(await getDatabasesPath(), 'student_housing_v4.db');
 
     return await openDatabase(
       path,
       version: 1,
       onCreate: (db, version) async {
-        print("📦 Creating Local Database Tables...");
+        print("📦 Creating Local Database Tables (V4)...");
 
-        // 1. Student Profile (✅ تم إضافة الأعمدة الجديدة)
+        // 1. Student Profile (Added phone)
         await db.execute('''
           CREATE TABLE student_profile (
             id TEXT PRIMARY KEY, 
@@ -34,19 +37,21 @@ class LocalDBService {
             full_name TEXT, 
             student_id TEXT, 
             college TEXT,
-            level TEXT,          -- ✅ جديد
-            address TEXT,        -- ✅ جديد
-            housing_type TEXT,   -- ✅ جديد
+            level TEXT,          
+            address TEXT,        
+            housing_type TEXT,   
             room_json TEXT, 
-            photo_url TEXT
+            photo_url TEXT,
+            phone TEXT           -- ✅ جديد
           )
         ''');
 
-        // 2. Attendance Cache
+        // 2. Attendance Cache (Added supervisor_name)
         await db.execute('''
           CREATE TABLE attendance_cache (
             date TEXT PRIMARY KEY, 
-            status TEXT
+            status TEXT,
+            supervisor_name TEXT -- ✅ جديد
           )
         ''');
 
@@ -63,7 +68,7 @@ class LocalDBService {
           )
         ''');
 
-        // 4. Maintenance Cache
+        // 4. Maintenance Cache (Added location_type, image_url)
         await db.execute('''
           CREATE TABLE maintenance_cache (
             id INTEGER PRIMARY KEY, 
@@ -71,7 +76,9 @@ class LocalDBService {
             description TEXT, 
             status TEXT, 
             supervisor_reply TEXT,
-            created_at TEXT
+            created_at TEXT,
+            location_type TEXT,  -- ✅ جديد
+            image_url TEXT       -- ✅ جديد
           )
         ''');
 
@@ -103,18 +110,20 @@ class LocalDBService {
           )
         ''');
 
-        // 7. Clearance Cache
+        // 7. Clearance Cache (Added notes, request_date)
         await db.execute('''
           CREATE TABLE clearance_cache (
             id INTEGER PRIMARY KEY, 
             status TEXT, 
             room_check_passed INTEGER, 
             keys_returned INTEGER,
-            initiated_at TEXT
+            initiated_at TEXT,
+            notes TEXT,          -- ✅ جديد
+            request_date TEXT    -- ✅ جديد
           )
         ''');
 
-        // 8. Announcements Cache
+        // 8. Announcements Cache (Added publisher)
         await db.execute('''
           CREATE TABLE announcements_cache (
             id INTEGER PRIMARY KEY, 
@@ -122,11 +131,12 @@ class LocalDBService {
             body TEXT, 
             category TEXT,
             priority TEXT,
-            created_at TEXT
+            created_at TEXT,
+            publisher TEXT       -- ✅ جديد
           )
         ''');
 
-        print("✅ Local Database Created Successfully");
+        print("✅ Local Database V4 Created Successfully");
       },
     );
   }
@@ -139,7 +149,7 @@ class LocalDBService {
     final db = await database;
     Batch batch = db.batch();
 
-    // مسح البيانات القديمة لضمان عدم التكرار
+    // مسح البيانات القديمة لضمان عدم التكرار وتحديث الكاش بالكامل
     await db.delete(tableName);
 
     for (var item in data) {
@@ -200,6 +210,7 @@ class LocalDBService {
 
   Future<void> clearAllData() async {
     final db = await database;
+    // حذف محتوى جميع الجداول عند تسجيل الخروج
     await db.delete('student_profile');
     await db.delete('attendance_cache');
     await db.delete('complaints_cache');

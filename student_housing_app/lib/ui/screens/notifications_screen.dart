@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../../core/viewmodels/notifications_view_model.dart';
-import '../widgets/pull_to_refresh.dart'; // ✅ الاستيراد الصحيح للويدجت بتاعنا
+// import '../widgets/pull_to_refresh.dart'; // تأكد من المسار أو استخدم RefreshIndicator العادي
 
 class NotificationsScreen extends StatefulWidget {
   const NotificationsScreen({super.key});
@@ -22,10 +22,8 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const double mobileWidth = 600.0;
-
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF5F7FA), // خلفية رمادية فاتحة جداً
       appBar: AppBar(
         backgroundColor: const Color(0xFF001F3F),
         title: Text(
@@ -40,287 +38,238 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: mobileWidth),
-          child: ListenableBuilder(
-            listenable: context.read<NotificationsViewModel>(),
-            builder: (context, _) {
-              final viewModel = context.read<NotificationsViewModel>();
-
-              // ✅ استخدام PullToRefresh المخصص
-              return PullToRefresh(
-                onRefresh: viewModel.loadNotifications,
-                child: _buildBody(viewModel),
-              );
-            },
-          ),
+      // ✅ RefreshIndicator بسيط ومباشر
+      body: RefreshIndicator(
+        onRefresh: () async {
+          await context.read<NotificationsViewModel>().loadNotifications();
+        },
+        child: Consumer<NotificationsViewModel>(
+          builder: (context, vm, child) {
+            return _buildBody(vm);
+          },
         ),
       ),
     );
   }
 
   Widget _buildBody(NotificationsViewModel viewModel) {
-    // Loading state (initial load)
+    // 1. Loading
     if (viewModel.isLoading && viewModel.notifications.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const CircularProgressIndicator(),
-            const SizedBox(height: 20),
-            Text(
-              'جاري تحميل الإشعارات...',
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                color: Colors.grey[600],
-              ),
-            ),
-          ],
-        ),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
-    // Error state
+    // 2. Error
     if (viewModel.errorMessage != null && viewModel.notifications.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.error_outline,
-              size: 48,
-              color: Colors.red[400],
+      return ListView(
+        padding: const EdgeInsets.only(top: 100),
+        children: [
+          const Icon(Icons.error_outline, size: 60, color: Colors.red),
+          const SizedBox(height: 16),
+          Text(viewModel.errorMessage!, textAlign: TextAlign.center, style: GoogleFonts.cairo()),
+          const SizedBox(height: 20),
+          Center(
+            child: ElevatedButton(
+              onPressed: viewModel.loadNotifications,
+              child: Text('إعادة المحاولة', style: GoogleFonts.cairo()),
             ),
-            const SizedBox(height: 16),
-            Text(
-              viewModel.errorMessage!,
-              textAlign: TextAlign.center,
-              style: GoogleFonts.cairo(
-                fontSize: 16,
-                color: Colors.red[400],
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton(
-              onPressed: () {
-                viewModel.loadNotifications();
-              },
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF001F3F),
-              ),
-              child: Text(
-                'إعادة محاولة',
-                style: GoogleFonts.cairo(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
+          )
+        ],
       );
     }
 
-    // Empty state
+    // 3. Empty
     if (viewModel.notifications.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.notifications_off,
-              size: 60,
-              color: Colors.grey[400],
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'لا توجد إشعارات',
-              style: GoogleFonts.cairo(fontSize: 16, color: Colors.grey[600]),
-            ),
-          ],
-        ),
+      return ListView(
+        padding: const EdgeInsets.only(top: 100),
+        children: [
+          const Icon(Icons.notifications_off_outlined, size: 80, color: Colors.grey),
+          const SizedBox(height: 16),
+          Text(
+            'لا توجد إشعارات جديدة',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.cairo(fontSize: 18, color: Colors.grey[600]),
+          ),
+        ],
       );
     }
 
-    // Notifications list
+    // 4. List
     return ListView.builder(
-      shrinkWrap: true, // ✅ مفتاح الحل 1
-      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: viewModel.notifications.length,
       itemBuilder: (context, index) {
-        return _buildNotificationItem(
-          viewModel.notifications[index],
-        );
+        final notification = viewModel.notifications[index];
+        return _buildNotificationCard(notification);
       },
     );
   }
 
-  Widget _buildNotificationItem(Map<String, dynamic> notification) {
-    final type = _parseNotificationType(notification['type']);
-    final isUnread = notification['isUnread'] ?? notification['is_unread'] ?? false;
+  Widget _buildNotificationCard(Map<String, dynamic> notification) {
+    // تحليل النوع لتحديد الأيقونة واللون
+    final type = _getNotificationType(notification);
+    final isRead = notification['is_read'] == true || notification['is_read'] == 1;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: isUnread ? Colors.white : Colors.grey[50],
-        borderRadius: BorderRadius.circular(12),
-        border: isUnread
-            ? Border.all(
-          color: Colors.blue.withOpacity(0.2),
-          width: 1.5,
-        )
-            : null,
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
+    return Dismissible(
+      key: Key(notification['id'].toString()),
+      background: Container(
+        color: Colors.red,
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
       ),
-      child: Row(
-        textDirection: TextDirection.rtl,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          // Right: Circular Icon Container
-          Container(
-            width: 50,
-            height: 50,
-            decoration: BoxDecoration(
-              color: _getIconBackgroundColor(type),
-              shape: BoxShape.circle,
-            ),
-            child: Icon(
-              _getIcon(type),
-              color: _getIconColor(type),
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 16),
+      onDismissed: (direction) {
+        // TODO: Implement delete logic
+      },
+      child: Card(
+        margin: const EdgeInsets.only(bottom: 12),
+        elevation: isRead ? 0 : 2, // الإشعار غير المقروء يكون بارز
+        color: isRead ? Colors.white : Colors.blue.shade50, // تمييز لوني
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: () {
+            // عند الضغط، نحدد الإشعار كمقروء
+            context.read<NotificationsViewModel>().markAsRead(notification['id']);
 
-          // Center: Message Content
-          Expanded(
-            child: Column(
+            // TODO: توجيه المستخدم للشاشة المناسبة حسب النوع
+            // if (type == NotificationType.maintenance) Navigator.pushNamed(...)
+          },
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Sender Name
-                Text(
-                  notification['senderName'] ??
-                      notification['sender_name'] ??
-                      notification['from'] ??
-                      'مرسل غير معروف',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF001F3F),
+                // الأيقونة الملونة
+                Container(
+                  width: 45,
+                  height: 45,
+                  decoration: BoxDecoration(
+                    color: _getBgColor(type),
+                    shape: BoxShape.circle,
                   ),
+                  child: Icon(_getIcon(type), color: _getIconColor(type), size: 22),
                 ),
-                const SizedBox(height: 6),
-                // Message Content
-                Text(
-                  notification['message'] ??
-                      notification['body'] ??
-                      '',
-                  style: GoogleFonts.cairo(
-                    fontSize: 13,
-                    color: Colors.grey[600],
-                    height: 1.4,
+                const SizedBox(width: 15),
+
+                // المحتوى
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          Text(
+                            notification['title'] ?? 'إشعار جديد',
+                            style: GoogleFonts.cairo(
+                                fontSize: 15,
+                                fontWeight: isRead ? FontWeight.normal : FontWeight.bold,
+                                color: const Color(0xFF001F3F)
+                            ),
+                          ),
+                          if (!isRead)
+                            Container(
+                              width: 8,
+                              height: 8,
+                              decoration: const BoxDecoration(
+                                color: Colors.red,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 5),
+                      Text(
+                        notification['message'] ?? notification['body'] ?? '',
+                        style: GoogleFonts.cairo(
+                            fontSize: 13,
+                            color: Colors.grey[700],
+                            height: 1.4
+                        ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        _formatDate(notification['created_at']),
+                        style: GoogleFonts.cairo(fontSize: 11, color: Colors.grey[500]),
+                      ),
+                    ],
                   ),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
-
-          // Left: Timestamp and Unread Indicator
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(
-                notification['timestamp'] ??
-                    notification['created_at'] ??
-                    '',
-                style: GoogleFonts.cairo(
-                  fontSize: 11,
-                  color: Colors.grey[500],
-                ),
-              ),
-              const SizedBox(height: 8),
-              if (isUnread)
-                Container(
-                  width: 10,
-                  height: 10,
-                  decoration: const BoxDecoration(
-                    color: Color(0xFFFF6B6B),
-                    shape: BoxShape.circle,
-                  ),
-                ),
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  NotificationType _parseNotificationType(dynamic type) {
-    if (type is String) {
-      switch (type.toLowerCase()) {
-        case 'supervisor':
-          return NotificationType.supervisor;
-        case 'buildingmanager':
-        case 'building_manager':
-          return NotificationType.buildingManager;
-        case 'generalmanager':
-        case 'general_manager':
-          return NotificationType.generalManager;
-        default:
-          return NotificationType.supervisor;
-      }
-    }
-    return NotificationType.supervisor;
+  // --- Helpers ---
+
+  // تحديد نوع الإشعار من العنوان أو المحتوى (مؤقتاً حتى يدعم الباك إند حقل type)
+  _NotifType _getNotificationType(Map<String, dynamic> notif) {
+    final title = (notif['title'] ?? '').toString().toLowerCase();
+
+    if (title.contains('صيانة') || title.contains('تصليح')) return _NotifType.maintenance;
+    if (title.contains('شكوى') || title.contains('مقترح')) return _NotifType.complaint;
+    if (title.contains('نشاط') || title.contains('مسابقة')) return _NotifType.activity;
+    if (title.contains('إنذار') || title.contains('غياب') || title.contains('جزاء')) return _NotifType.warning;
+
+    return _NotifType.general;
   }
 
-  Color _getIconBackgroundColor(NotificationType type) {
+  Color _getBgColor(_NotifType type) {
     switch (type) {
-      case NotificationType.supervisor:
-        return Colors.grey.withOpacity(0.2);
-      case NotificationType.buildingManager:
-        return const Color(0xFF4A90E2).withOpacity(0.2);
-      case NotificationType.generalManager:
-        return const Color(0xFF001F3F).withOpacity(0.2);
+      case _NotifType.maintenance: return Colors.orange.withOpacity(0.15);
+      case _NotifType.complaint: return Colors.purple.withOpacity(0.15);
+      case _NotifType.warning: return Colors.red.withOpacity(0.15);
+      case _NotifType.activity: return Colors.green.withOpacity(0.15);
+      default: return Colors.blue.withOpacity(0.15);
     }
   }
 
-  Color _getIconColor(NotificationType type) {
+  Color _getIconColor(_NotifType type) {
     switch (type) {
-      case NotificationType.supervisor:
-        return Colors.grey[600]!;
-      case NotificationType.buildingManager:
-        return const Color(0xFF4A90E2);
-      case NotificationType.generalManager:
-        return const Color(0xFF001F3F);
+      case _NotifType.maintenance: return Colors.orange[800]!;
+      case _NotifType.complaint: return Colors.purple[800]!;
+      case _NotifType.warning: return Colors.red[800]!;
+      case _NotifType.activity: return Colors.green[800]!;
+      default: return Colors.blue[800]!;
     }
   }
 
-  IconData _getIcon(NotificationType type) {
+  IconData _getIcon(_NotifType type) {
     switch (type) {
-      case NotificationType.supervisor:
-        return Icons.person;
-      case NotificationType.buildingManager:
-        return Icons.domain;
-      case NotificationType.generalManager:
-        return Icons.shield;
+      case _NotifType.maintenance: return Icons.build_circle_outlined;
+      case _NotifType.complaint: return Icons.support_agent;
+      case _NotifType.warning: return Icons.warning_amber_rounded;
+      case _NotifType.activity: return Icons.celebration;
+      default: return Icons.notifications_none;
+    }
+  }
+
+  String _formatDate(String? dateStr) {
+    if (dateStr == null) return '';
+    try {
+      final date = DateTime.parse(dateStr);
+      final now = DateTime.now();
+      final diff = now.difference(date);
+
+      if (diff.inMinutes < 60) return 'منذ ${diff.inMinutes} دقيقة';
+      if (diff.inHours < 24) return 'منذ ${diff.inHours} ساعة';
+      if (diff.inDays == 1) return 'أمس';
+      return '${date.day}/${date.month}';
+    } catch (e) {
+      return '';
     }
   }
 }
 
-enum NotificationType {
-  supervisor,
-  buildingManager,
-  generalManager,
+enum _NotifType {
+  maintenance, // صيانة
+  complaint,   // شكوى
+  warning,     // إنذار/غياب
+  activity,    // نشاط
+  general      // عام
 }

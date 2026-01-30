@@ -1,70 +1,59 @@
-import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import '../repositories/data_repository.dart';
 
-/// NotificationsViewModel: State management for Notifications feature
-/// 
-/// Extends ChangeNotifier to provide reactive updates to UI
-/// Injects DataRepository as single source of truth
 class NotificationsViewModel extends ChangeNotifier {
-  final DataRepository _repository;
+  final DataRepository _repository = DataRepository();
 
-  // State variables
-  List<Map<String, dynamic>> _notifications = [];
   bool _isLoading = false;
+  List<Map<String, dynamic>> _notifications = [];
   String? _errorMessage;
 
-  // Getters for UI access
-  List<Map<String, dynamic>> get notifications => _notifications;
   bool get isLoading => _isLoading;
+  List<Map<String, dynamic>> get notifications => _notifications;
   String? get errorMessage => _errorMessage;
 
-  /// Constructor with dependency injection
-  NotificationsViewModel({DataRepository? repository})
-      : _repository = repository ?? DataRepository();
+  // عدد الإشعارات غير المقروءة
+  int get unreadCount => _notifications.where((n) => n['is_read'] == false || n['is_read'] == 0).length;
 
-  /// Load notifications list
-  /// 
-  /// Fetches notifications from repository and updates state
+  // ✅ توحيد الاسم: loadNotifications
   Future<void> loadNotifications() async {
-    _setLoading(true);
-    _clearMessages();
+    _isLoading = true;
+    _errorMessage = null;
+    notifyListeners();
 
     try {
       final result = await _repository.getNotifications();
+      if (result['success']) {
+        _notifications = List<Map<String, dynamic>>.from(result['data']);
 
-      if (result['success'] == true) {
-        _notifications = List<Map<String, dynamic>>.from(
-          result['data'] ?? [],
-        );
-        print('✅ Notifications loaded successfully - Count: ${_notifications.length}');
+        // ترتيب الإشعارات: الأحدث أولاً
+        _notifications.sort((a, b) {
+          final dateA = DateTime.tryParse(a['created_at'] ?? '') ?? DateTime(2000);
+          final dateB = DateTime.tryParse(b['created_at'] ?? '') ?? DateTime(2000);
+          return dateB.compareTo(dateA);
+        });
       } else {
-        _errorMessage = result['message'] ?? 'فشل تحميل الإشعارات';
-        print('❌ Error: $_errorMessage');
+        _errorMessage = result['message'];
       }
     } catch (e) {
-      _errorMessage = 'حدث خطأ غير متوقع: $e';
-      print('❌ Exception: $e');
-    } finally {
-      _setLoading(false);
-      notifyListeners();
+      _errorMessage = 'فشل تحميل الإشعارات';
+      print('Error fetching notifications: $e');
     }
-  }
 
-  /// Clear error message
-  void clearErrorMessage() {
-    _errorMessage = null;
+    _isLoading = false;
     notifyListeners();
   }
 
-  // ===== Private Helpers =====
+  // ✅ تحديد الإشعار كمقروء
+  Future<void> markAsRead(int id) async {
+    final index = _notifications.indexWhere((n) => n['id'] == id);
+    if (index != -1) {
+      // تحديث الواجهة فوراً (Optimistic UI)
+      _notifications[index]['is_read'] = true;
+      notifyListeners();
 
-  /// Set loading state
-  void _setLoading(bool value) {
-    _isLoading = value;
-  }
-
-  /// Clear error messages
-  void _clearMessages() {
-    _errorMessage = null;
+      // إرسال الطلب للسيرفر (لو الـ API جاهز)
+      // await _repository.markNotificationAsRead(id); 
+    }
   }
 }

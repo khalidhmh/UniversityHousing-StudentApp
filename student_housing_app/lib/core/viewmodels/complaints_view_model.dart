@@ -23,7 +23,6 @@ class ComplaintsViewModel extends ChangeNotifier {
   // ============================================================================
   // GETTERS
   // ============================================================================
-  // Returns filtered list if filter is active, otherwise all complaints
   List<Map<String, dynamic>> get complaints {
     if (_selectedFilter == 'all') {
       return _complaints;
@@ -42,14 +41,13 @@ class ComplaintsViewModel extends ChangeNotifier {
   // PUBLIC METHODS
   // ============================================================================
 
-  /// Fetch complaints using REACTIVE CACHE-FIRST pattern
-  Future<void> getComplaints() async {
+  /// ✅ Fetch complaints (Renamed to fetchComplaints for consistency)
+  Future<void> fetchComplaints() async {
     _isLoading = true;
     _errorMessage = null;
     notifyListeners();
 
     try {
-      // 1. Try to get data (Repo handles Cache + API logic)
       final result = await _dataRepository.getComplaints();
 
       if (result['success'] == true) {
@@ -57,12 +55,9 @@ class ComplaintsViewModel extends ChangeNotifier {
         _complaints = List<Map<String, dynamic>>.from(data);
         _errorMessage = null;
 
-        // Re-apply current filter on new data
+        // Re-apply filter
         _applyFilter(_selectedFilter);
-
-        print('✅ Complaints loaded (${_complaints.length} items)');
       } else {
-        // Only show error if we have NO data to show
         if (_complaints.isEmpty) {
           _errorMessage = result['message'] ?? 'فشل تحميل الشكاوى';
         }
@@ -71,20 +66,14 @@ class ComplaintsViewModel extends ChangeNotifier {
       if (_complaints.isEmpty) {
         _errorMessage = 'حدث خطأ: $e';
       }
-      print('❌ Error loading complaints: $e');
     } finally {
       _isLoading = false;
       notifyListeners();
     }
   }
 
-  /// Submit a new complaint
-  Future<bool> submitComplaint({
-    required String title,
-    required String description,
-    required String recipient,
-    required bool isSecret,
-  }) async {
+  /// ✅ Submit a new complaint (Removed recipient & isSecret)
+  Future<bool> submitComplaint(String title, String description) async {
     if (title.isEmpty || description.isEmpty) {
       _errorMessage = 'يرجى ملء العنوان والتفاصيل';
       notifyListeners();
@@ -97,19 +86,17 @@ class ComplaintsViewModel extends ChangeNotifier {
     notifyListeners();
 
     try {
+      // ✅ Updated to match DataRepository signature
       final result = await _dataRepository.submitComplaint(
         title: title,
         description: description,
-        recipient: recipient,
-        isSecret: isSecret,
       );
 
       if (result['success'] == true) {
         _successMessage = 'تم إرسال الشكوى بنجاح';
-
-        // Refresh the list to show the new item
-        await getComplaints();
-
+        
+        // Refresh list
+        await fetchComplaints();
         return true;
       } else {
         _errorMessage = result['message'] ?? 'فشل إرسال الشكوى';
@@ -124,7 +111,7 @@ class ComplaintsViewModel extends ChangeNotifier {
     }
   }
 
-  /// Filter complaints by status
+  /// Filter complaints logic
   void filterComplaints(String filterType) {
     _selectedFilter = filterType;
     _applyFilter(filterType);
@@ -134,15 +121,17 @@ class ComplaintsViewModel extends ChangeNotifier {
   void _applyFilter(String filterType) {
     if (filterType == 'all') {
       _filteredComplaints = List.from(_complaints);
-    } else if (filterType == 'pending') {
+    } else {
       _filteredComplaints = _complaints.where((c) {
         final status = c['status']?.toString().toLowerCase() ?? '';
-        return status == 'pending' || status == 'قيد الانتظار';
-      }).toList();
-    } else if (filterType == 'resolved') {
-      _filteredComplaints = _complaints.where((c) {
-        final status = c['status']?.toString().toLowerCase() ?? '';
-        return status != 'pending' && status != 'قيد الانتظار';
+        
+        if (filterType == 'pending') {
+          return status == 'pending' || status == 'قيد الانتظار';
+        } else if (filterType == 'resolved') {
+          // أي حالة غير معلقة تعتبر منتهية (تم الرد / تم الحل / مرفوضة)
+          return status != 'pending' && status != 'قيد الانتظار';
+        }
+        return true;
       }).toList();
     }
   }

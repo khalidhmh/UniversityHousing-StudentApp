@@ -1,204 +1,156 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
-/// MaintenanceCard: Reusable widget for displaying individual maintenance request
-/// 
-/// Features:
-/// - Dynamic status colors (Fixed=Green, Pending=Orange)
-/// - Category icon
-/// - Location display
-/// - Formatted date
 class MaintenanceCard extends StatelessWidget {
-  final String id;
-  final String category;
-  final String title;
-  final String location;
+  final String id; // ✅ مطلوب
+  final String title; // كان category
+  final String description; // ✅ جديد
   final String status;
-  final DateTime date;
+  final String date; // كان created_at
+  final String? imageUrl; // ✅ جديد
+  final String? location; // ✅ مطلوب
 
   const MaintenanceCard({
-    super.key,
-    required this.id,
-    required this.category,
+    Key? key,
+    this.id = '0',
     required this.title,
-    required this.location,
+    required this.description,
     required this.status,
     required this.date,
-  });
+    this.imageUrl,
+    this.location,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final (statusBgColor, statusTextColor) = _getStatusColors();
-    final categoryIcon = _getCategoryIcon(category);
+    Color statusColor;
+    String statusText;
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.08),
-            blurRadius: 6,
-            offset: const Offset(0, 2),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Category Icon (Left)
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.grey[200],
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              categoryIcon,
-              size: 24,
-              color: const Color(0xFF001F3F),
-            ),
-          ),
-          const SizedBox(width: 12),
+    switch (status.toLowerCase()) {
+      case 'completed':
+      case 'تم التصليح':
+        statusColor = Colors.green;
+        statusText = 'تم الإصلاح';
+        break;
+      case 'pending':
+      case 'قيد الانتظار':
+      default:
+        statusColor = Colors.orange;
+        statusText = 'قيد الانتظار';
+    }
 
-          // Request Details (Center)
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+    return Card(
+      margin: const EdgeInsets.only(bottom: 16),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+      elevation: 2,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            // Header: Icon + Category + Status
+            Row(
               children: [
-                Text(
-                  title,
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF001F3F),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: Colors.blue.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(10),
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
+                  child: Icon(Icons.build, color: Colors.blue[800]),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  location,
-                  style: GoogleFonts.cairo(
-                    fontSize: 12,
-                    color: Colors.grey[600],
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _getCategoryName(title),
+                        style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 16),
+                      ),
+                      if (location != null)
+                        Text(
+                          location!,
+                          style: GoogleFonts.cairo(color: Colors.grey, fontSize: 12),
+                        ),
+                    ],
                   ),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
                 ),
-                const SizedBox(height: 2),
-                Text(
-                  _formatDate(date),
-                  style: GoogleFonts.cairo(
-                    fontSize: 11,
-                    color: Colors.grey[500],
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: statusColor.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    statusText,
+                    style: GoogleFonts.cairo(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
                   ),
                 ),
               ],
             ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(height: 12),
 
-          // Status Badge (Right)
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusBgColor,
-              borderRadius: BorderRadius.circular(16),
+            // Description
+            Text(
+              description,
+              style: GoogleFonts.cairo(color: Colors.grey[800]),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
             ),
-            child: Text(
-              status,
-              style: GoogleFonts.cairo(
-                fontSize: 11,
-                fontWeight: FontWeight.bold,
-                color: statusTextColor,
+
+            // Image (If exists)
+            if (imageUrl != null && imageUrl!.isNotEmpty) ...[
+              const SizedBox(height: 12),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  imageUrl!,
+                  height: 120,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (c,e,s) => const SizedBox(), // إخفاء لو فشل التحميل
+                ),
               ),
+            ],
+
+            const SizedBox(height: 12),
+            // Footer: Date
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                Icon(Icons.calendar_today, size: 14, color: Colors.grey[400]),
+                const SizedBox(width: 4),
+                Text(
+                  _formatDate(date),
+                  style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 12),
+                ),
+              ],
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
 
-  /// Get status colors based on status string
-  (Color, Color) _getStatusColors() {
-    final normalizedStatus = status.toLowerCase();
-
-    if (normalizedStatus.contains('تم الإصلاح') || normalizedStatus.contains('fixed')) {
-      return (
-        Colors.green.withOpacity(0.1),
-        Colors.green,
-      );
-    } else if (normalizedStatus.contains('قيد الانتظار') || normalizedStatus.contains('pending')) {
-      return (
-        Colors.amber.withOpacity(0.1),
-        Colors.amber[700]!,
-      );
-    } else {
-      // Default: pending
-      return (
-        Colors.amber.withOpacity(0.1),
-        Colors.amber[700]!,
-      );
+  String _formatDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      return "${date.year}-${date.month}-${date.day}";
+    } catch (e) {
+      return dateStr;
     }
   }
 
-  /// Get icon for category
-  IconData _getCategoryIcon(String category) {
-    switch (category.toLowerCase()) {
-      case 'كهرباء':
-      case 'electrical':
-        return Icons.electrical_services;
-      case 'سباكة':
-      case 'plumbing':
-        return Icons.plumbing;
-      case 'نجارة':
-      case 'carpentry':
-        return Icons.handyman;
-      case 'ألوميتال':
-      case 'aluminum':
-        return Icons.window;
-      case 'غاز':
-      case 'gas':
-        return Icons.gas_meter;
-      default:
-        return Icons.build;
-    }
-  }
-
-  /// Format date to readable string
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final difference = now.difference(date);
-
-    if (difference.inDays == 0) {
-      return 'اليوم';
-    } else if (difference.inDays == 1) {
-      return 'أمس';
-    } else if (difference.inDays < 7) {
-      return 'قبل ${difference.inDays} أيام';
-    } else {
-      return '${date.day} ${_getMonthName(date.month)} ${date.year}';
-    }
-  }
-
-  /// Get Arabic month name
-  String _getMonthName(int month) {
-    const months = [
-      'يناير',
-      'فبراير',
-      'مارس',
-      'أبريل',
-      'مايو',
-      'يونيو',
-      'يوليو',
-      'أغسطس',
-      'سبتمبر',
-      'أكتوبر',
-      'نوفمبر',
-      'ديسمبر',
-    ];
-    return months[month - 1];
+  String _getCategoryName(String key) {
+    const map = {
+      'electricity': 'كهرباء',
+      'plumbing': 'سباكة',
+      'carpentry': 'نجارة',
+      'aluminum': 'ألوميتال',
+      'gas': 'غاز',
+      'internet': 'إنترنت',
+    };
+    return map[key] ?? key;
   }
 }

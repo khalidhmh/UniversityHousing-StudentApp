@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../../core/viewmodels/profile_view_model.dart';
+import '../../core/services/auth_service.dart';
+import '../screens/login_screen.dart';
 
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  const ProfileScreen({Key? key}) : super(key: key);
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
@@ -14,6 +15,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   @override
   void initState() {
     super.initState();
+    // ✅ تحميل البيانات مرة واحدة عند فتح الشاشة
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<ProfileViewModel>().loadUserProfile();
     });
@@ -21,190 +23,133 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   @override
   Widget build(BuildContext context) {
-    const primaryColor = Color(0xFF001F3F);
-    const accentColor = Color(0xFFF2C94C);
-
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFFF5F7FA),
+      appBar: AppBar(
+        title: const Text('الملف الشخصي', style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        centerTitle: true,
+        iconTheme: const IconThemeData(color: Colors.black),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.logout, color: Colors.red),
+            onPressed: () async {
+              await Provider.of<AuthService>(context, listen: false).logout();
+              if (mounted) {
+                Navigator.of(context).pushAndRemoveUntil(
+                  MaterialPageRoute(builder: (context) => const LoginScreen()),
+                  (route) => false,
+                );
+              }
+            },
+          )
+        ],
+      ),
       body: Consumer<ProfileViewModel>(
         builder: (context, vm, child) {
           if (vm.isLoading) {
             return const Center(child: CircularProgressIndicator());
           }
 
-          return SingleChildScrollView(
-            child: Column(
-              children: [
-                // Premium Header with User Info
-                Stack(
-                  alignment: Alignment.center,
-                  clipBehavior: Clip.none,
-                  children: [
-                    // Background Curve
-                    Container(
-                      height: 280,
-                      width: double.infinity,
-                      decoration: const BoxDecoration(
-                        color: primaryColor,
-                        borderRadius: BorderRadius.only(
-                          bottomLeft: Radius.circular(40),
-                          bottomRight: Radius.circular(40),
-                        ),
-                      ),
-                    ),
+          if (vm.errorMessage != null) {
+            return Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(Icons.error_outline, size: 48, color: Colors.red),
+                  const SizedBox(height: 10),
+                  Text(vm.errorMessage!),
+                  TextButton(
+                    onPressed: () => vm.loadUserProfile(),
+                    child: const Text("إعادة المحاولة"),
+                  )
+                ],
+              ),
+            );
+          }
 
-                    // Profile Content
-                    Positioned(
-                      top: 60, // Adjust for status bar
-                      child: Column(
-                        children: [
-                          // Avatar with border
-                          Container(
-                            padding: const EdgeInsets.all(4),
-                            decoration: BoxDecoration(
-                              shape: BoxShape.circle,
-                              border: Border.all(color: accentColor, width: 3),
-                            ),
-                            child: CircleAvatar(
-                              radius: 55,
-                              backgroundColor: Colors.grey,
-                              backgroundImage: vm.photoUrl.isNotEmpty
-                                  ? NetworkImage(vm.photoUrl) as ImageProvider
-                                  : const AssetImage('assets/profile1.png'),
-                              onBackgroundImageError: (_, __) {},
-                              child: vm.photoUrl.isEmpty
-                                  ? const Icon(Icons.person, size: 60, color: Colors.white)
-                                  : null,
-                            ),
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            vm.fullName,
-                            style: GoogleFonts.cairo(
-                              fontSize: 22,
-                              fontWeight: FontWeight.bold,
-                              color: Colors.white,
-                            ),
-                          ),
-                          Text(
-                            vm.college,
-                            style: GoogleFonts.cairo(
-                              fontSize: 14,
-                              color: Colors.white70,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    // System ID Ticket/Card (Floating overlap)
-                    Positioned(
-                      bottom: -30,
-                      child: Container(
-                        width: MediaQuery.of(context).size.width * 0.85,
-                        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 20),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFF001F3F),
-                          borderRadius: BorderRadius.circular(15),
-                          border: Border.all(color: accentColor, style: BorderStyle.solid),
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.black.withOpacity(0.2),
-                              blurRadius: 10,
-                              offset: const Offset(0, 5),
-                            ),
-                          ],
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              "كود الطالب (SYSTEM ID)",
-                              style: GoogleFonts.cairo(
-                                fontSize: 12,
-                                color: accentColor,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            const SizedBox(height: 8),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                const Icon(Icons.copy, color: Colors.white70, size: 18),
-                                const SizedBox(width: 8),
-                                Text(
-                                  "SYS-${DateTime.now().year}-${vm.studentId}",
-                                  style: GoogleFonts.cairo(
-                                    fontSize: 18,
-                                    fontWeight: FontWeight.bold,
-                                    color: Colors.white,
-                                    letterSpacing: 1.5,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 60), // Space for the overlapping card
-
-                // Read-only Notice
-                Container(
-                  margin: const EdgeInsets.symmetric(horizontal: 20),
-                  padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFFE3F2FD),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: Colors.blue.shade200),
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
+          return RefreshIndicator(
+            onRefresh: () => vm.loadUserProfile(),
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.all(20),
+              child: Column(
+                children: [
+                  // 1. صورة البروفايل
+                  Stack(
+                    alignment: Alignment.bottomRight,
                     children: [
-                      Icon(Icons.lock_outline, size: 18, color: Colors.blue.shade800),
-                      const SizedBox(width: 8),
-                      Text(
-                        "وضع القراءة فقط - لا يمكن تعديل البيانات",
-                        style: GoogleFonts.cairo(
-                          fontSize: 13,
-                          color: Colors.blue.shade800,
-                          fontWeight: FontWeight.w600,
-                        ),
+                      CircleAvatar(
+                        radius: 60,
+                        backgroundColor: Colors.grey.shade200,
+                        backgroundImage: vm.photoUrl.isNotEmpty
+                            ? NetworkImage(vm.photoUrl)
+                            : const AssetImage('assets/profile1.png') as ImageProvider,
                       ),
+                      Container(
+                        decoration: const BoxDecoration(
+                          color: Colors.blue,
+                          shape: BoxShape.circle,
+                        ),
+                        child: IconButton(
+                          icon: const Icon(Icons.camera_alt, color: Colors.white, size: 20),
+                          onPressed: () {
+                            // TODO: Add image picker logic here later
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('سيتم تفعيل رفع الصورة قريباً')),
+                            );
+                          },
+                        ),
+                      )
                     ],
                   ),
-                ),
-
-                const SizedBox(height: 20),
-
-                // Info Cards Section
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Column(
-                    children: [
-                      _buildDetailsCard("الرقم القومي", vm.nationalId, Icons.credit_card_outlined),
-                      _buildDetailsCard("رقم الكارنية", vm.studentId, Icons.badge_outlined),
-
-                      // ✅ تم الربط: الكلية والفرقة
-                      _buildDetailsCard("الكلية والفرقة", "${vm.college} - الفرقة ${vm.level}", Icons.school_outlined),
-
-                      // ✅ تم الربط: نوع السكن
-                      _buildDetailsCard("نوع السكن", vm.housingType, Icons.apartment_outlined),
-
-                      // ✅ تم الربط: المبنى والغرفة (التي تم إصلاحها في الفيو موديل)
-                      _buildDetailsCard("المبنى والغرفة", vm.housingInfo, Icons.location_on_outlined),
-
-                      // ✅ تم الربط: العنوان
-                      _buildDetailsCard("العنوان", vm.address, Icons.location_city_outlined),
-                    ],
+                  const SizedBox(height: 15),
+                  
+                  // الاسم والرقم القومي
+                  Text(
+                    vm.fullName,
+                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-                ),
+                  Text(
+                    vm.nationalId,
+                    style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+                  ),
+                  const SizedBox(height: 30),
 
-                const SizedBox(height: 20),
+                  // 2. كروت المعلومات (تم تحديثها بالحقول الجديدة)
+                  _buildInfoCard(
+                    context, 
+                    title: 'المعلومات الأكاديمية',
+                    icon: Icons.school,
+                    items: [
+                      _InfoItem('الكلية', vm.faculty),
+                      _InfoItem('المستوى', vm.userProfile?['level']?.toString() ?? 'غير محدد'),
+                    ]
+                  ),
+                  
+                  _buildInfoCard(
+                    context, 
+                    title: 'بيانات السكن',
+                    icon: Icons.home,
+                    items: [
+                      _InfoItem('المبنى', vm.buildingName),
+                      _InfoItem('رقم الغرفة', vm.roomNumber),
+                      _InfoItem('نوع السكن', vm.userProfile?['housing_type'] ?? 'عادي'),
+                    ]
+                  ),
 
-              ],
+                  _buildInfoCard(
+                    context, 
+                    title: 'التواصل',
+                    icon: Icons.contact_phone,
+                    items: [
+                      _InfoItem('رقم الهاتف', vm.phone), // ✅ الجديد
+                      _InfoItem('العنوان', vm.address),   // ✅ الجديد
+                    ]
+                  ),
+                ],
+              ),
             ),
           );
         },
@@ -212,80 +157,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildDetailsCard(String label, String value, IconData icon) {
+  Widget _buildInfoCard(BuildContext context, {required String title, required IconData icon, required List<_InfoItem> items}) {
     return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
+      margin: const EdgeInsets.only(bottom: 20),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: Colors.grey.shade100),
+        borderRadius: BorderRadius.circular(20),
         boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.02),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 5)),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            padding: const EdgeInsets.all(10),
-            decoration: BoxDecoration(
-              color: Colors.grey.shade50,
-              shape: BoxShape.circle,
-            ),
-            child: Icon(icon, color: Colors.grey.shade600, size: 22),
+          Row(
+            children: [
+              Icon(icon, color: Colors.blue),
+              const SizedBox(width: 10),
+              Text(title, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            ],
           ),
-          const SizedBox(width: 16),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+          const Divider(height: 30),
+          ...items.map((item) => Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                Text(
-                  label,
-                  style: GoogleFonts.cairo(
-                    fontSize: 12,
-                    color: Colors.grey.shade500,
-                  ),
-                ),
-                Text(
-                  value,
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: const Color(0xFF001F3F),
+                Text(item.label, style: TextStyle(color: Colors.grey[600])),
+                Expanded(
+                  child: Text(
+                    item.value, 
+                    style: const TextStyle(fontWeight: FontWeight.w600),
+                    textAlign: TextAlign.end,
+                    overflow: TextOverflow.ellipsis,
                   ),
                 ),
               ],
             ),
-          ),
+          )).toList(),
         ],
       ),
     );
   }
+}
 
-  Widget _buildActionTile(String title, IconData icon, VoidCallback onTap, {bool isDestructive = false}) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      decoration: BoxDecoration(
-        color: isDestructive ? Colors.red.shade50 : Colors.white,
-        borderRadius: BorderRadius.circular(12),
-        border: isDestructive ? Border.all(color: Colors.red.shade100) : Border.all(color: Colors.grey.shade200),
-      ),
-      child: ListTile(
-        onTap: onTap,
-        leading: Icon(icon, color: isDestructive ? Colors.red : const Color(0xFF001F3F)),
-        title: Text(
-          title,
-          style: GoogleFonts.cairo(
-            fontWeight: FontWeight.bold,
-            color: isDestructive ? Colors.red : const Color(0xFF001F3F),
-          ),
-        ),
-        trailing: Icon(Icons.arrow_forward_ios, size: 16, color: isDestructive ? Colors.red.withOpacity(0.5) : Colors.grey),
-      ),
-    );
-  }
+class _InfoItem {
+  final String label;
+  final String value;
+  _InfoItem(this.label, this.value);
 }

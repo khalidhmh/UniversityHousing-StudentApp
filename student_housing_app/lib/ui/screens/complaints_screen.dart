@@ -1,3 +1,4 @@
+import 'dart:ui'; // ✅ For ImageFilter
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -13,18 +14,11 @@ class ComplaintsScreen extends StatefulWidget {
 }
 
 class _ComplaintsScreenState extends State<ComplaintsScreen> {
-  bool _isSecret = false;
-  String? _selectedRecipient;
+  // تم تعطيل الوضع السري مؤقتاً
+  final bool _isSecret = false;
+
   final TextEditingController _subjectController = TextEditingController();
   final TextEditingController _messageController = TextEditingController();
-
-  final List<String> recipients = [
-    'مدير المبنى',
-    'رعاية الشباب',
-    'شؤون التغذية',
-    'الأمن والسلامة',
-    'الخدمات الإدارية',
-  ];
 
   @override
   void dispose() {
@@ -36,7 +30,7 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF5F7FA), // لون خلفية هادئ
       appBar: AppBar(
         backgroundColor: const Color(0xFF001F3F),
         title: Text(
@@ -49,9 +43,11 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
         ),
         centerTitle: true,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           IconButton(
             icon: const Icon(Icons.history, color: Colors.white),
+            tooltip: "سجل الشكاوى",
             onPressed: () {
               Navigator.push(
                 context,
@@ -73,31 +69,51 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    // Secret Mode Switch
-                    SecretModeSwitch(
-                      isSecret: _isSecret,
-                      onChanged: (value) {
-                        setState(() {
-                          _isSecret = value;
-                        });
-                      },
+                    // ✅ 1. Secret Mode (Disabled & Blurred)
+                    Stack(
+                      children: [
+                        // The original widget (disabled look)
+                        Opacity(
+                          opacity: 0.6,
+                          child: SecretModeSwitch(
+                            isSecret: _isSecret,
+                            onChanged: (value) {}, // لا يفعل شيء
+                          ),
+                        ),
+                        // The Blur Overlay
+                        Positioned.fill(
+                          child: ClipRect(
+                            child: BackdropFilter(
+                              filter: ImageFilter.blur(sigmaX: 3.0, sigmaY: 3.0),
+                              child: Container(
+                                color: Colors.grey.withOpacity(0.1),
+                                alignment: Alignment.center,
+                                child: Container(
+                                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                  decoration: BoxDecoration(
+                                    color: Colors.black54,
+                                    borderRadius: BorderRadius.circular(20),
+                                  ),
+                                  child: Text(
+                                    "ميزة قادمة في التحديث القادم 🔒",
+                                    style: GoogleFonts.cairo(
+                                        color: Colors.white,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 12
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 25),
 
-                    // Recipient Dropdown
-                    Text(
-                      'المستقبل',
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        fontWeight: FontWeight.bold,
-                        color: const Color(0xFF001F3F),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    _buildRecipientDropdown(),
-                    const SizedBox(height: 20),
+                    // (تم إخفاء اختيار المستقبل لأنه أصبح تلقائياً في النظام الجديد)
 
-                    // Subject TextField
+                    // ✅ 2. Subject TextField
                     Text(
                       'الموضوع',
                       style: GoogleFonts.cairo(
@@ -107,10 +123,10 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                       ),
                     ),
                     const SizedBox(height: 8),
-                    _buildTextFieldInput(_subjectController, 'أدخل الموضوع'),
+                    _buildTextFieldInput(_subjectController, 'أدخل عنوان المشكلة'),
                     const SizedBox(height: 20),
 
-                    // Message TextField
+                    // ✅ 3. Message TextField
                     Text(
                       'الرسالة',
                       style: GoogleFonts.cairo(
@@ -122,13 +138,13 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                     const SizedBox(height: 8),
                     _buildMultilineTextFieldInput(
                       _messageController,
-                      'اكتب شكواك أو مقترحك هنا...',
+                      'اكتب تفاصيل شكواك أو مقترحك هنا...',
                     ),
                     const SizedBox(height: 20),
 
-                    // Attachments Row
+                    // ✅ 4. Attachments (Disabled for now)
                     Text(
-                      'المرفقات',
+                      'المرفقات (اختياري)',
                       style: GoogleFonts.cairo(
                         fontSize: 14,
                         fontWeight: FontWeight.bold,
@@ -139,13 +155,13 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                     Row(
                       mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                       children: [
-                        _buildAttachmentButton('تحميل صورة', Icons.image),
-                        _buildAttachmentButton('تحميل ملف', Icons.attach_file),
+                        _buildDisabledAttachmentButton('تحميل صورة', Icons.image),
+                        _buildDisabledAttachmentButton('تحميل ملف', Icons.attach_file),
                       ],
                     ),
-                    const SizedBox(height: 30),
+                    const SizedBox(height: 40),
 
-                    // Submit Button with Loading State
+                    // ✅ 5. Submit Button
                     SizedBox(
                       width: double.infinity,
                       height: 50,
@@ -155,36 +171,36 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                             : () => _submitComplaint(context, viewModel),
                         style: ElevatedButton.styleFrom(
                           backgroundColor: const Color(0xFFF2C94C),
-                          disabledBackgroundColor: Colors.grey[400],
+                          foregroundColor: const Color(0xFF001F3F), // Text color
+                          disabledBackgroundColor: Colors.grey[300],
+                          elevation: 2,
                           shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(12),
                           ),
                         ),
                         child: viewModel.isSubmitting
                             ? SizedBox(
-                                height: 24,
-                                width: 24,
-                                child: CircularProgressIndicator(
-                                  valueColor: AlwaysStoppedAnimation<Color>(
-                                    Colors.grey[600]!,
-                                  ),
-                                  strokeWidth: 2,
-                                ),
-                              )
+                          height: 24,
+                          width: 24,
+                          child: CircularProgressIndicator(
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              Colors.grey[700]!,
+                            ),
+                            strokeWidth: 2.5,
+                          ),
+                        )
                             : Text(
-                                'إرسال الشكوى',
-                                style: GoogleFonts.cairo(
-                                  fontSize: 16,
-                                  fontWeight: FontWeight.bold,
-                                  color: const Color(0xFF001F3F),
-                                ),
-                              ),
+                          'إرسال الشكوى',
+                          style: GoogleFonts.cairo(
+                            fontSize: 16,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
                       ),
                     ),
 
-                    // Error Message Display
-                    if (viewModel.errorMessage != null &&
-                        viewModel.errorMessage!.isNotEmpty)
+                    // Error Message
+                    if (viewModel.errorMessage != null && viewModel.errorMessage!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 20),
                         child: Container(
@@ -192,18 +208,18 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFFFEBEE),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.red[200]!),
+                            border: Border.all(color: Colors.red.shade200),
                           ),
                           child: Row(
                             children: [
-                              Icon(Icons.error_outline, color: Colors.red[900]),
+                              Icon(Icons.error_outline, color: Colors.red.shade900),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   viewModel.errorMessage!,
                                   style: GoogleFonts.cairo(
                                     fontSize: 14,
-                                    color: Colors.red[900],
+                                    color: Colors.red.shade900,
                                   ),
                                 ),
                               ),
@@ -212,9 +228,8 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                         ),
                       ),
 
-                    // Success Message Display
-                    if (viewModel.successMessage != null &&
-                        viewModel.successMessage!.isNotEmpty)
+                    // Success Message
+                    if (viewModel.successMessage != null && viewModel.successMessage!.isNotEmpty)
                       Padding(
                         padding: const EdgeInsets.only(top: 20),
                         child: Container(
@@ -222,21 +237,18 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
                           decoration: BoxDecoration(
                             color: const Color(0xFFE8F5E9),
                             borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.green[200]!),
+                            border: Border.all(color: Colors.green.shade200),
                           ),
                           child: Row(
                             children: [
-                              Icon(
-                                Icons.check_circle,
-                                color: Colors.green[900],
-                              ),
+                              Icon(Icons.check_circle, color: Colors.green.shade900),
                               const SizedBox(width: 12),
                               Expanded(
                                 child: Text(
                                   viewModel.successMessage!,
                                   style: GoogleFonts.cairo(
                                     fontSize: 14,
-                                    color: Colors.green[900],
+                                    color: Colors.green.shade900,
                                   ),
                                 ),
                               ),
@@ -254,53 +266,13 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
     );
   }
 
-  /// Build recipient dropdown
-  Widget _buildRecipientDropdown() {
+  /// Text Field Helper
+  Widget _buildTextFieldInput(TextEditingController controller, String hintText) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
-      ),
-      child: DropdownButtonFormField<String>(
-        value: _selectedRecipient,
-        items: recipients.map((String value) {
-          return DropdownMenuItem<String>(
-            value: value,
-            child: Text(value, style: GoogleFonts.cairo()),
-          );
-        }).toList(),
-        onChanged: (String? newValue) {
-          setState(() {
-            _selectedRecipient = newValue;
-          });
-        },
-        hint: Text(
-          'اختر المستقبل',
-          style: GoogleFonts.cairo(color: Colors.grey),
-        ),
-        decoration: InputDecoration(
-          border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
-          hintStyle: GoogleFonts.cairo(color: Colors.grey),
-        ),
-      ),
-    );
-  }
-
-  /// Build text field input
-  Widget _buildTextFieldInput(
-    TextEditingController controller,
-    String hintText,
-  ) {
-    return Container(
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: TextField(
         controller: controller,
@@ -309,86 +281,66 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
           hintText: hintText,
           hintStyle: GoogleFonts.cairo(color: Colors.grey),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
   }
 
-  /// Build multiline text field input
-  Widget _buildMultilineTextFieldInput(
-    TextEditingController controller,
-    String hintText,
-  ) {
+  /// Multiline Text Field Helper
+  Widget _buildMultilineTextFieldInput(TextEditingController controller, String hintText) {
     return Container(
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 5)],
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: TextField(
         controller: controller,
-        maxLines: 5,
+        maxLines: 6,
         style: GoogleFonts.cairo(),
         decoration: InputDecoration(
           hintText: hintText,
           hintStyle: GoogleFonts.cairo(color: Colors.grey),
           border: InputBorder.none,
-          contentPadding: const EdgeInsets.symmetric(
-            horizontal: 16,
-            vertical: 12,
-          ),
+          contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         ),
       ),
     );
   }
 
-  /// Build attachment button
-  Widget _buildAttachmentButton(String label, IconData icon) {
+  /// Disabled Attachment Button Helper
+  Widget _buildDisabledAttachmentButton(String label, IconData icon) {
     return Expanded(
-      child: OutlinedButton.icon(
-        onPressed: () {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('$label - قيد التطوير', style: GoogleFonts.cairo()),
-              backgroundColor: Colors.blue,
-            ),
-          );
-        },
-        icon: Icon(icon),
-        label: Text(
-          label,
-          style: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w500),
-        ),
-        style: OutlinedButton.styleFrom(
-          foregroundColor: const Color(0xFF001F3F),
-          side: const BorderSide(color: Color(0xFF001F3F), width: 1.5),
-          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-          padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Opacity(
+        opacity: 0.5,
+        child: OutlinedButton.icon(
+          onPressed: () {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(content: Text('سيتم تفعيل المرفقات في التحديث القادم', style: GoogleFonts.cairo())),
+            );
+          },
+          icon: Icon(icon),
+          label: Text(label, style: GoogleFonts.cairo(fontSize: 12, fontWeight: FontWeight.w600)),
+          style: OutlinedButton.styleFrom(
+            foregroundColor: Colors.grey,
+            side: const BorderSide(color: Colors.grey),
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+            padding: const EdgeInsets.symmetric(vertical: 12),
+          ),
         ),
       ),
     );
   }
 
-  /// Submit complaint handler
-  Future<void> _submitComplaint(
-    BuildContext context,
-    ComplaintsViewModel viewModel,
-  ) async {
-    // Validate inputs
-    if (_selectedRecipient == null ||
-        _subjectController.text.isEmpty ||
-        _messageController.text.isEmpty) {
+  /// Submit Logic
+  Future<void> _submitComplaint(BuildContext context, ComplaintsViewModel viewModel) async {
+    // Validate
+    if (_subjectController.text.trim().isEmpty || _messageController.text.trim().isEmpty) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: Text(
-              'يرجى ملء جميع الحقول المطلوبة',
-              style: GoogleFonts.cairo(),
-            ),
+            content: Text('يرجى كتابة العنوان وتفاصيل الشكوى', style: GoogleFonts.cairo()),
             backgroundColor: Colors.red,
           ),
         );
@@ -396,101 +348,45 @@ class _ComplaintsScreenState extends State<ComplaintsScreen> {
       return;
     }
 
-    // Submit complaint via ViewModel (using Provider context to avoid context validity issues)
+    // ✅ Submit (Removed recipient & isSecret)
     final success = await viewModel.submitComplaint(
-      title: _subjectController.text,
-      description: _messageController.text,
-      recipient: _selectedRecipient!,
-      isSecret: _isSecret,
+      _subjectController.text.trim(), // Title
+      _messageController.text.trim(), // Description
     );
 
     if (success && mounted) {
-      // Reset form
+      // Clear fields
       _subjectController.clear();
       _messageController.clear();
-      setState(() {
-        _selectedRecipient = null;
-        _isSecret = false;
-      });
+      // Show dialog then go back
+      _showSuccessDialog();
     }
   }
 
-  /// Show success dialog
-  void _showSuccessDialog(String message) {
+  void _showSuccessDialog() {
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFE8F5E9),
-        title: Row(
+        backgroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        title: Column(
           children: [
-            Icon(Icons.check_circle, color: Colors.green, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'نجح',
-                style: GoogleFonts.cairo(
-                  color: Colors.green[900],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
+            const Icon(Icons.check_circle, color: Colors.green, size: 50),
+            const SizedBox(height: 10),
+            Text('تم الإرسال', style: GoogleFonts.cairo(fontWeight: FontWeight.bold)),
           ],
         ),
-        content: Text(
-          message,
-          style: GoogleFonts.cairo(color: Colors.green[900]),
+        content: Text('تم استلام شكواك بنجاح وسيتم الرد عليها قريباً.',
+            textAlign: TextAlign.center,
+            style: GoogleFonts.cairo(color: Colors.grey[700])
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'حسناً',
-              style: GoogleFonts.cairo(
-                color: Colors.green[900],
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  /// Show error dialog
-  void _showErrorDialog(String message) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        backgroundColor: const Color(0xFFFFEBEE),
-        title: Row(
-          children: [
-            Icon(Icons.error_outline, color: Colors.red, size: 28),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Text(
-                'خطأ',
-                style: GoogleFonts.cairo(
-                  color: Colors.red[900],
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-        content: Text(
-          message,
-          style: GoogleFonts.cairo(color: Colors.red[900]),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context),
-            child: Text(
-              'حسناً',
-              style: GoogleFonts.cairo(
-                color: Colors.red[900],
-                fontWeight: FontWeight.bold,
-              ),
-            ),
+            onPressed: () {
+              Navigator.pop(context); // Close Dialog
+              Navigator.pop(context); // Close Screen
+            },
+            child: Text('حسناً', style: GoogleFonts.cairo(fontWeight: FontWeight.bold, color: const Color(0xFF001F3F))),
           ),
         ],
       ),

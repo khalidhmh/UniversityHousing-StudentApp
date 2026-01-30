@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../widgets/pull_to_refresh.dart';
+import '../widgets/pull_to_refresh.dart'; // تأكد من أن هذا الويجت يدعم Scrollable بداخله
 import '../widgets/complaints/complaint_item_card.dart';
 import '../../../core/viewmodels/complaints_view_model.dart';
 import 'complaints_screen.dart';
@@ -17,16 +17,16 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
   @override
   void initState() {
     super.initState();
-    // Load complaints when screen initializes
+    // ✅ استخدام fetchComplaints بدلاً من getComplaints
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ComplaintsViewModel>().getComplaints();
+      context.read<ComplaintsViewModel>().fetchComplaints();
     });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: const Color(0xFFF5F5F5),
+      backgroundColor: const Color(0xFFF5F7FA), // لون خلفية أهدأ
       appBar: AppBar(
         backgroundColor: const Color(0xFF001F3F),
         title: Text(
@@ -39,6 +39,7 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
         ),
         centerTitle: true,
         elevation: 0,
+        iconTheme: const IconThemeData(color: Colors.white),
         actions: [
           // Filter menu
           PopupMenuButton<String>(
@@ -46,39 +47,31 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
               context.read<ComplaintsViewModel>().filterComplaints(value);
             },
             itemBuilder: (BuildContext context) => [
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'all',
-                child: Text('الكل'),
+                child: Text('الكل', style: GoogleFonts.cairo()),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'pending',
-                child: Text('قيد الانتظار'),
+                child: Text('قيد الانتظار', style: GoogleFonts.cairo()),
               ),
-              const PopupMenuItem(
+              PopupMenuItem(
                 value: 'resolved',
-                child: Text('تم الرد'),
+                child: Text('تم الرد', style: GoogleFonts.cairo()),
               ),
             ],
             icon: const Icon(Icons.filter_list, color: Colors.white),
           ),
         ],
       ),
-      body: ListenableBuilder(
-        listenable: context.read<ComplaintsViewModel>(),
-        builder: (context, _) {
-          final viewModel = context.read<ComplaintsViewModel>();
-          final complaints = viewModel.complaints;
-
-          return PullToRefresh(
+      // ✅ استخدام Consumer للاستماع للتغييرات
+      body: Consumer<ComplaintsViewModel>(
+        builder: (context, viewModel, child) {
+          return RefreshIndicator(
             onRefresh: () async {
-              await viewModel.getComplaints();
+              await viewModel.fetchComplaints();
             },
-            child: Center(
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: 600),
-                child: _buildComplaintsList(viewModel, complaints),
-              ),
-            ),
+            child: _buildBody(viewModel),
           );
         },
       ),
@@ -89,7 +82,10 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
             MaterialPageRoute(
               builder: (context) => const ComplaintsScreen(),
             ),
-          );
+          ).then((_) {
+            // تحديث القائمة عند العودة من إضافة شكوى جديدة
+            context.read<ComplaintsViewModel>().fetchComplaints();
+          });
         },
         backgroundColor: const Color(0xFFF2C94C),
         icon: const Icon(
@@ -107,99 +103,52 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
     );
   }
 
-  /// Build complaints list with loading/error states
-  Widget _buildComplaintsList(ComplaintsViewModel viewModel, List<Map<String, dynamic>> complaints) {
-    // Loading state
+  Widget _buildBody(ComplaintsViewModel viewModel) {
+    final complaints = viewModel.complaints;
+
+    // 1. Loading State
     if (viewModel.isLoading && complaints.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          const SizedBox(height: 50),
-          Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const CircularProgressIndicator(),
-                const SizedBox(height: 16),
-                Text(
-                  'جاري التحميل...',
-                  style: GoogleFonts.cairo(
-                    fontSize: 16,
-                    color: Colors.grey[600],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
-    // Error state
+    // 2. Error State
     if (viewModel.errorMessage != null && complaints.isEmpty) {
-      return ListView(
-        padding: const EdgeInsets.all(16),
+      return ListView( // ListView لضمان عمل الـ RefreshIndicator
+        padding: const EdgeInsets.all(20),
         children: [
-          const SizedBox(height: 50),
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
+          const Icon(Icons.error_outline, size: 60, color: Colors.red),
+          const SizedBox(height: 10),
+          Text(
+            viewModel.errorMessage!,
+            textAlign: TextAlign.center,
+            style: GoogleFonts.cairo(color: Colors.red, fontSize: 16),
+          ),
+          const SizedBox(height: 20),
           Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Icon(
-                  Icons.error_outline,
-                  size: 48,
-                  color: Colors.red[400],
-                ),
-                const SizedBox(height: 16),
-                Text(
-                  viewModel.errorMessage!,
-                  textAlign: TextAlign.center,
-                  style: GoogleFonts.cairo(
-                    fontSize: 16,
-                    color: Colors.red[400],
-                  ),
-                ),
-                const SizedBox(height: 16),
-                ElevatedButton(
-                  onPressed: () {
-                    viewModel.getComplaints();
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF001F3F),
-                  ),
-                  child: Text(
-                    'إعادة محاولة',
-                    style: GoogleFonts.cairo(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ],
+            child: ElevatedButton(
+              onPressed: () => viewModel.fetchComplaints(),
+              child: Text('إعادة المحاولة', style: GoogleFonts.cairo()),
             ),
           ),
         ],
       );
     }
 
-    // Empty state
+    // 3. Empty State
     if (complaints.isEmpty) {
       return ListView(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         children: [
-          const SizedBox(height: 80),
+          SizedBox(height: MediaQuery.of(context).size.height * 0.3),
           Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Icon(
-                  Icons.inbox,
-                  size: 64,
-                  color: Colors.grey[300],
-                ),
+                const Icon(Icons.inbox_outlined, size: 80, color: Colors.grey),
                 const SizedBox(height: 16),
                 Text(
-                  'لا توجد شكاوى',
+                  'لا توجد شكاوى حالياً',
                   style: GoogleFonts.cairo(
                     fontSize: 18,
                     fontWeight: FontWeight.bold,
@@ -208,11 +157,8 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'قم بإرسال شكواك الأولى الآن',
-                  style: GoogleFonts.cairo(
-                    fontSize: 14,
-                    color: Colors.grey[500],
-                  ),
+                  'يمكنك إرسال شكوى جديدة من الزر بالأسفل',
+                  style: GoogleFonts.cairo(fontSize: 14, color: Colors.grey[500]),
                 ),
               ],
             ),
@@ -221,37 +167,30 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
       );
     }
 
-    // Success state with complaints list
+    // 4. Success List
     return ListView.builder(
-      shrinkWrap: true, // ✅ مفتاح الحل 1
-      physics: const NeverScrollableScrollPhysics(),
       padding: const EdgeInsets.all(16),
       itemCount: complaints.length,
+      // ✅ إزالة shrinkWrap و physics للسماح بالتمرير الطبيعي
       itemBuilder: (context, index) {
         final complaint = complaints[index];
         return ComplaintItemCard(
-          id: complaint['id']?.toString() ?? 'unknown',
+          id: complaint['id']?.toString() ?? '0',
           title: complaint['title'] ?? 'بدون عنوان',
           description: complaint['description'] ?? '',
-          status: complaint['status'] ?? 'قيد الانتظار',
-          adminReply: complaint['admin_reply'],
-          date: _parseDate(complaint['date']),
-          isSecret: complaint['is_secret'] ?? false,
+          status: complaint['status'] ?? 'pending',
+          adminReply: complaint['admin_reply'] ?? complaint['reply_text'], // ✅ دعم المسميين
+          date: _parseDate(complaint['created_at'] ?? complaint['date']), // ✅ استخدام created_at
+          isSecret: complaint['is_secret'] == true || complaint['is_secret'] == 1,
         );
       },
     );
   }
 
-  /// Helper to parse date from complaint data
+  /// دالة مساعدة لتحليل التاريخ بأمان
   DateTime _parseDate(dynamic dateValue) {
-    if (dateValue == null) {
-      return DateTime.now();
-    }
-
-    if (dateValue is DateTime) {
-      return dateValue;
-    }
-
+    if (dateValue == null) return DateTime.now();
+    if (dateValue is DateTime) return dateValue;
     if (dateValue is String) {
       try {
         return DateTime.parse(dateValue);
@@ -259,7 +198,6 @@ class _ComplaintsHistoryScreenState extends State<ComplaintsHistoryScreen> {
         return DateTime.now();
       }
     }
-
     return DateTime.now();
   }
 }
