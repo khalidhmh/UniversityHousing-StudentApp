@@ -118,11 +118,14 @@ class _ActivitiesScreenState extends State<ActivitiesScreen> {
                 activityId: activity['id'],
                 initialData: activity,
               ),
-            ),
-          ).then((_) {
-            // تحديث القائمة عند العودة (تحسباً لتغيير حالة الاشتراك في التفاصيل)
-            Provider.of<ActivitiesViewModel>(context, listen: false).loadActivities();
-          });
+            )
+            ///////////
+            ,);
+          /////////
+          // ).then((_) {
+          //   // تحديث القائمة عند العودة (تحسباً لتغيير حالة الاشتراك في التفاصيل)
+          //   Provider.of<ActivitiesViewModel>(context, listen: false).loadActivities();
+          // });
         },
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,

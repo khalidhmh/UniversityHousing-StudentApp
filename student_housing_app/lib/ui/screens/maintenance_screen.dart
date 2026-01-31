@@ -74,18 +74,22 @@ class _MaintenanceScreenState extends State<MaintenanceScreen> {
             child: ListView.builder(
               padding: const EdgeInsets.all(16),
               itemCount: vm.requests.length,
+              // داخل ListView.builder في MaintenanceScreen
               itemBuilder: (context, index) {
                 final req = vm.requests[index];
 
-                // ✅ ربط البيانات بالكارت المحدث
                 return MaintenanceCard(
                   id: req['id']?.toString() ?? '0',
-                  title: req['category'] ?? 'عام',
+                  category: req['category'] ?? 'عام', // تأكد من تغيير المسمى لـ category لو غيرته في الكارت
                   description: req['description'] ?? 'لا يوجد وصف',
                   status: req['status'] ?? 'pending',
                   date: req['created_at'] ?? '',
-                  imageUrl: req['image_url'], // الصورة لو موجودة
-                  location: req['location_details'], // المكان
+                  imageUrl: req['image_url'],
+                  // البيانات الجديدة المفصلة
+                  floor: req['floor'] ?? 0,
+                  wing: req['wing'] ?? '',
+                  locationType: req['location_type'] ?? '',
+                  roomNo: req['room_number'],
                 );
               },
             ),

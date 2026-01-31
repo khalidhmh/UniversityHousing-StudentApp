@@ -26,30 +26,33 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Scaffold(
       backgroundColor: const Color(0xFFF5F7FA),
       appBar: AppBar(
-        title: const Text('الملف الشخصي', style: TextStyle(color: Colors.black)),
-        backgroundColor: Colors.transparent,
+        title: const Text('الملف الشخصي', style: TextStyle(color: Colors.white)),
+        backgroundColor: const Color(0xFF001F3F),
         elevation: 0,
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.black),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.logout, color: Colors.red),
-            onPressed: () async {
-              await Provider.of<AuthService>(context, listen: false).logout();
-              if (mounted) {
-                Navigator.of(context).pushAndRemoveUntil(
-                  MaterialPageRoute(builder: (context) => const LoginScreen()),
-                  (route) => false,
-                );
-              }
-            },
-          )
+          // IconButton(
+          //   icon: const Icon(Icons.logout, color: Colors.red),
+          //   onPressed: () async {
+          //     await Provider.of<AuthService>(context, listen: false).logout();
+          //     if (mounted) {
+          //       Navigator.of(context).pushAndRemoveUntil(
+          //         MaterialPageRoute(builder: (context) => const LoginScreen()),
+          //         (route) => false,
+          //       );
+          //     }
+          //   },
+          // )
         ],
       ),
       body: Consumer<ProfileViewModel>(
         builder: (context, vm, child) {
           if (vm.isLoading) {
+            print(vm.photoUrl);
+
             return const Center(child: CircularProgressIndicator());
+
           }
 
           if (vm.errorMessage != null) {
@@ -81,11 +84,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     alignment: Alignment.bottomRight,
                     children: [
                       CircleAvatar(
-                        radius: 60,
-                        backgroundColor: Colors.grey.shade200,
-                        backgroundImage: vm.photoUrl.isNotEmpty
-                            ? NetworkImage(vm.photoUrl)
-                            : const AssetImage('assets/profile1.png') as ImageProvider,
+                        radius: 65,
+                        backgroundColor: Colors.white,
+                        child: CircleAvatar(
+                          radius: 60,
+                          backgroundColor: Colors.grey.shade100,
+                          backgroundImage: vm.photoUrl.isNotEmpty
+                              ? NetworkImage(vm.photoUrl)
+                              : const AssetImage('assets/default_avatar.png') as ImageProvider,
+                          // إضافة أداة عرض أثناء التحميل أو الخطأ
+                          child: vm.photoUrl.isEmpty
+                              ? const Icon(Icons.person, size: 60, color: Colors.grey)
+                              : null,
+                        ),
                       ),
                       Container(
                         decoration: const BoxDecoration(
@@ -105,7 +116,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     ],
                   ),
                   const SizedBox(height: 15),
-                  
+
                   // الاسم والرقم القومي
                   Text(
                     vm.fullName,
@@ -119,7 +130,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                   // 2. كروت المعلومات (تم تحديثها بالحقول الجديدة)
                   _buildInfoCard(
-                    context, 
+                    context,
                     title: 'المعلومات الأكاديمية',
                     icon: Icons.school,
                     items: [
@@ -127,9 +138,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _InfoItem('المستوى', vm.userProfile?['level']?.toString() ?? 'غير محدد'),
                     ]
                   ),
-                  
+
                   _buildInfoCard(
-                    context, 
+                    context,
                     title: 'بيانات السكن',
                     icon: Icons.home,
                     items: [
@@ -140,7 +151,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
 
                   _buildInfoCard(
-                    context, 
+                    context,
                     title: 'التواصل',
                     icon: Icons.contact_phone,
                     items: [
@@ -187,7 +198,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 Text(item.label, style: TextStyle(color: Colors.grey[600])),
                 Expanded(
                   child: Text(
-                    item.value, 
+                    item.value,
                     style: const TextStyle(fontWeight: FontWeight.w600),
                     textAlign: TextAlign.end,
                     overflow: TextOverflow.ellipsis,

@@ -16,15 +16,15 @@ class MealsScreen extends StatelessWidget {
         centerTitle: true,
         iconTheme: const IconThemeData(color: Colors.white),
       ),
+      // تم استخدام Stack مع حماية الـ BackdropFilter
       body: Stack(
         children: [
-          // Original content (now blurred in background)
+          // 1. المحتوى الأساسي
           SingleChildScrollView(
             padding: const EdgeInsets.all(16.0),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                // تنبيه بسيط
                 Container(
                   margin: const EdgeInsets.only(bottom: 20),
                   padding: const EdgeInsets.all(12),
@@ -46,16 +46,12 @@ class MealsScreen extends StatelessWidget {
                     ],
                   ),
                 ),
-
-                // 1. كارت الغداء والعشاء (الرئيسي)
                 const SecureQrWidget(
                   title: "وجبة الغداء واستلام العشاء",
                   timeRange: "02:00 م - 07:00 م",
                   icon: Icons.restaurant,
-                  activeColor: Color(0xFF001F3F), // كحلي
+                  activeColor: Color(0xFF001F3F),
                 ),
-
-                // عنوان فاصل
                 Padding(
                   padding: const EdgeInsets.symmetric(vertical: 10),
                   child: Text(
@@ -63,59 +59,50 @@ class MealsScreen extends StatelessWidget {
                     style: GoogleFonts.cairo(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.grey),
                   ),
                 ),
-
-                // 2. كارت الفطار (اليوم التالي)
                 const SecureQrWidget(
                   title: "فطار غداً (صباحاً)",
                   timeRange: "06:00 ص - 09:00 ص",
                   icon: Icons.free_breakfast,
-                  activeColor: Color(0xFF001F3F), // ممكن تخليه لون تاني لو حابب
+                  activeColor: Color(0xFF001F3F),
                 ),
-                
                 const SizedBox(height: 20),
               ],
             ),
           ),
 
-          // Blur Effect & Coming Soon Overlay
+          // 2. إصلاح الـ Blur: وضع الطبقة فوق المحتوى
+          // استخدمنا ClipRect للتأكد من أن الـ Blur لا يخرج عن حدود الشاشة
           Positioned.fill(
-            child: BackdropFilter(
-              filter: ui.ImageFilter.blur(sigmaX: 5, sigmaY: 5),
-              child: Container(
-                color: Colors.white.withOpacity(0.5),
+            child: ClipRect(
+              child: BackdropFilter(
+                filter: ui.ImageFilter.blur(sigmaX: 5.0, sigmaY: 5.0),
+                child: Container(
+                  color: Colors.white.withOpacity(0.3), // تقليل الـ Opacity لتحسين الشكل
+                ),
               ),
             ),
           ),
 
-          // Coming Soon Message
+          // 3. رسالة "قريباً"
           Center(
             child: Card(
               elevation: 8,
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(20),
-              ),
+              margin: const EdgeInsets.symmetric(horizontal: 20),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
               child: Container(
-                padding: const EdgeInsets.all(40),
+                padding: const EdgeInsets.all(30),
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(20),
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [
-                      Colors.white,
-                      Colors.blue[50]!,
-                    ],
+                    colors: [Colors.white, Colors.blue[50]!],
                   ),
                 ),
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.restaurant_menu,
-                      size: 60,
-                      color: const Color(0xFF001F3F),
-                    ),
+                    const Icon(Icons.restaurant_menu, size: 60, color: Color(0xFF001F3F)),
                     const SizedBox(height: 20),
                     Text(
                       "قريباً - المرحلة الثانية",
@@ -130,11 +117,7 @@ class MealsScreen extends StatelessWidget {
                     Text(
                       "خدمة المطعم غير متاحة حالياً، انتظرونا في التحديث القادم!",
                       textAlign: TextAlign.center,
-                      style: GoogleFonts.cairo(
-                        fontSize: 14,
-                        color: Colors.grey[700],
-                        height: 1.5,
-                      ),
+                      style: GoogleFonts.cairo(fontSize: 14, color: Colors.grey[700]),
                     ),
                   ],
                 ),

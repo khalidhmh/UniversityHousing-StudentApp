@@ -156,7 +156,8 @@ class DataRepository {
 
   // --- Subscriptions ---
   Future<Map<String, dynamic>> subscribeToActivity(int activityId) async {
-    return await _apiService.post('/student/activities/subscribe', {'activity_id': activityId});
+    return await _apiService.post('/student/activities/subscribe'
+        '', {'activity_id': activityId});
   }
 
   Future<Map<String, dynamic>> unsubscribeFromActivity(int activityId) async {
@@ -262,11 +263,16 @@ class DataRepository {
           'id': item['id'] ?? 0,
           'category': item['category'] ?? 'عام',
           'description': item['description'] ?? '',
-          'location_type': item['location_type'] ?? '', // ✅ حقل جديد
+          'floor': item['floor'],             // ✅ تخزين الدور
+          'wing': item['wing'],               // ✅ تخزين الجناح
+          'location_type': item['location_type'] ?? '',
+          'room_number': item['room_number'] ?? '',
           'status': (item['status'] ?? 'pending').toString().toLowerCase(),
-          'image_url': ApiService.getImageUrl(item['image_url']), // ✅ صورة العطل
+          'image_url': ApiService.getImageUrl(item['image_url']),
           'created_at': item['created_at'] ?? '',
         }).toList();
+
+        print(data);
 
         await _localDBService.cacheData('maintenance_cache', data);
         return {'success': true, 'data': data, 'fromCache': false};
@@ -278,41 +284,49 @@ class DataRepository {
   }
 
   // ✅ New: Submit with Image support
+  // ✅ المحدث: إرسال الطلب مع دعم الدور، الجناح، ورقم الغرفة
   Future<Map<String, dynamic>> submitMaintenance({
     required String category,
     required String description,
-    required String locationType, // ✅ New
-    String? locationDetails,      // ✅ New
-    File? image                   // ✅ New
+    required int floor,          // ✅ جديد: رقم الدور
+    required String wing,        // ✅ جديد: الجناح (أ، ب، ج، د)
+    required String locationType, // ✅ جديد: نوع المكان
+    String? roomNumber,           // ✅ جديد: رقم الغرفة (اختياري)
+    File? image
   }) async {
     try {
-      // ✅ التعديل الأول: استخدم ApiService.baseUrl بدلاً من _apiService.baseUrl
       var uri = Uri.parse('${ApiService.baseUrl}/student/maintenance');
       var request = http.MultipartRequest('POST', uri);
 
-      // Headers (Token)
+      // 1. إضافة الـ Headers (Token)
       String? token = await _apiService.getToken();
       if (token != null) {
         request.headers['Authorization'] = 'Bearer $token';
       }
 
-      // Fields
+      // 2. إضافة الحقول النصية (Fields)
       request.fields['category'] = category;
       request.fields['description'] = description;
+      request.fields['floor'] = floor.toString(); // تحويل الرقم لنص للإرسال
+      request.fields['wing'] = wing;
       request.fields['location_type'] = locationType;
-      if (locationDetails != null) request.fields['location_details'] = locationDetails;
 
-      // File
+      if (roomNumber != null) {
+        request.fields['room_number'] = roomNumber;
+      }
+
+      // 3. إضافة الصورة (إن وجدت)
       if (image != null) {
         request.files.add(await http.MultipartFile.fromPath('image', image.path));
       }
 
+      // 4. إرسال الطلب واستلام الرد
       var streamedResponse = await request.send();
       var response = await http.Response.fromStream(streamedResponse);
 
       return jsonDecode(response.body);
     } catch (e) {
-      return {'success': false, 'message': 'Upload Error: $e'};
+      return {'success': false, 'message': 'حدث خطأ أثناء الإرسال: $e'};
     }
   }
 

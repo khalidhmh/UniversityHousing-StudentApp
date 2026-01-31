@@ -108,11 +108,10 @@ class HomeViewModel extends ChangeNotifier {
           }
           print('🔍 Comparison: Log Date($todayStr) vs API Date($logDateOnly) -> (($todayStr) == ($logDateOnly))');
           print("$isPresentState        $isPresentDate");
-          print("isCheckedIn ----->$isCheckedIn");
           return isPresentDate && isPresentState;
 
         });
-
+        print("isCheckedIn ----->$isCheckedIn");
         notifyListeners();
       }
 

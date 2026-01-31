@@ -69,16 +69,19 @@ class LocalDBService {
         ''');
 
         // 4. Maintenance Cache (Added location_type, image_url)
+        // 4. Maintenance Cache (المحدث بالأعمدة الجديدة)
         await db.execute('''
           CREATE TABLE maintenance_cache (
             id INTEGER PRIMARY KEY, 
             category TEXT, 
             description TEXT, 
             status TEXT, 
-            supervisor_reply TEXT,
-            created_at TEXT,
-            location_type TEXT,  -- ✅ جديد
-            image_url TEXT       -- ✅ جديد
+            floor INTEGER,       -- ✅ جديد: رقم الدور
+            wing TEXT,          -- ✅ جديد: الجناح
+            location_type TEXT,  -- ✅ موجود: نوع المكان
+            room_number TEXT,    -- ✅ جديد: رقم الغرفة
+            image_url TEXT,      
+            created_at TEXT
           )
         ''');
 

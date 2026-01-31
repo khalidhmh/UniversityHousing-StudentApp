@@ -32,95 +32,46 @@ class _AnnouncementsScreenState extends State<AnnouncementsScreen> {
         ),
         centerTitle: true,
       ),
-      body: ListenableBuilder(
-        listenable: context.watch<AnnouncementsViewModel>(),
-        builder: (context, _) {
-          final viewModel = context.read<AnnouncementsViewModel>();
-
-          // Loading State
+      body: Consumer<AnnouncementsViewModel>( // استخدم Consumer أفضل هنا
+        builder: (context, viewModel, _) {
+          // 1. حالة التحميل (فقط لو القائمة فارغة)
           if (viewModel.isLoading && viewModel.announcements.isEmpty) {
-            return const Center(
-              child: CircularProgressIndicator(color: Color(0xFF001F3F)),
-            );
+            return const Center(child: CircularProgressIndicator(color: Color(0xFF001F3F)));
           }
 
-          // Error State
-          if (viewModel.errorMessage != null &&
-              viewModel.announcements.isEmpty) {
+          // 2. حالة الخطأ
+          if (viewModel.errorMessage != null && viewModel.announcements.isEmpty) {
             return Center(
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   const Icon(Icons.error_outline, size: 48, color: Colors.grey),
                   const SizedBox(height: 16),
-                  Text(
-                    viewModel.errorMessage ?? 'حدث خطأ',
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      color: Colors.grey[700],
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
+                  Text(viewModel.errorMessage!, style: GoogleFonts.cairo()),
                   ElevatedButton(
-                    onPressed: () => viewModel.refreshAnnouncements(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: const Color(0xFF001F3F),
-                    ),
-                    child: Text(
-                      'حاول مرة أخرى',
-                      style: GoogleFonts.cairo(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
+                    onPressed: () => viewModel.loadAnnouncements(),
+                    child: const Text("حاول مرة أخرى"),
+                  )
                 ],
               ),
             );
           }
 
-          // Empty State
+          // 3. القائمة الفارغة
           if (viewModel.announcements.isEmpty) {
-            return Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  const Icon(
-                    Icons.notifications_none,
-                    size: 48,
-                    color: Colors.grey,
-                  ),
-                  const SizedBox(height: 16),
-                  Text(
-                    'لا توجد إعلانات حالياً',
-                    style: GoogleFonts.cairo(
-                      fontSize: 16,
-                      color: Colors.grey[700],
-                    ),
-                  ),
-                ],
-              ),
-            );
+            return Center(child: Text('لا توجد إعلانات حالياً', style: GoogleFonts.cairo()));
           }
 
-          // Announcements List
-          return Center(
-            child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 600),
-              child: RefreshIndicator(
-                onRefresh: () => viewModel.refreshAnnouncements(),
-                child: ListView.builder(
-                  shrinkWrap: true, // ✅ مفتاح الحل 1
-                  physics: const NeverScrollableScrollPhysics(),
-                  padding: const EdgeInsets.all(20),
-                  itemCount: viewModel.announcements.length,
-                  itemBuilder: (context, index) {
-                    final announcement = viewModel.announcements[index];
-                    return _buildAnnouncementCard(announcement);
-                  },
-                ),
-              ),
+          // 4. عرض البيانات (تم إصلاح الـ Scroll)
+          return RefreshIndicator(
+            onRefresh: () => viewModel.refreshAnnouncements(),
+            child: ListView.builder(
+              padding: const EdgeInsets.all(20),
+              itemCount: viewModel.announcements.length,
+              itemBuilder: (context, index) {
+                final announcement = viewModel.announcements[index];
+                return _buildAnnouncementCard(announcement);
+              },
             ),
           );
         },

@@ -2,7 +2,7 @@ import 'package:encrypt/encrypt.dart' as encrypt;
 
 class SecurityService {
   // المفتاح السري (ثابت)
-  final _key = encrypt.Key.fromUtf8('Eng-Khalid_Hussain/AVATAR');
+  final _key = encrypt.Key.fromUtf8('my_32_characters_long_key_123456');
   late final encrypt.Encrypter _encrypter;
 
   SecurityService() {

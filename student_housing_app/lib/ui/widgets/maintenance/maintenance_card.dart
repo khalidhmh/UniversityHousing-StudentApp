@@ -2,41 +2,51 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 class MaintenanceCard extends StatelessWidget {
-  final String id; // ✅ مطلوب
-  final String title; // كان category
-  final String description; // ✅ جديد
-  final String status;
-  final String date; // كان created_at
-  final String? imageUrl; // ✅ جديد
-  final String? location; // ✅ مطلوب
+  final String id;
+  final String category;    // نوع العطل
+  final String description;
+  final String status;      // الحالة (pending, in_progress, completed)
+  final String date;
+  final String? imageUrl;
+  final int floor;          // ✅ جديد
+  final String wing;        // ✅ جديد
+  final String? roomNo;     // ✅ جديد
+  final String locationType; // ✅ جديد
 
   const MaintenanceCard({
     Key? key,
     this.id = '0',
-    required this.title,
+    required this.category,
     required this.description,
     required this.status,
     required this.date,
+    required this.floor,
+    required this.wing,
+    required this.locationType,
+    this.roomNo,
     this.imageUrl,
-    this.location,
   }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
+    // تحديد اللون والنص بناءً على الحالات الثلاث المتفق عليها
     Color statusColor;
     String statusText;
 
     switch (status.toLowerCase()) {
       case 'completed':
-      case 'تم التصليح':
         statusColor = Colors.green;
         statusText = 'تم الإصلاح';
         break;
+      case 'in_progress': // ✅ الحالة الجديدة
+        statusColor = Colors.blue;
+        statusText = 'قيد التصليح';
+        break;
       case 'pending':
-      case 'قيد الانتظار':
       default:
         statusColor = Colors.orange;
         statusText = 'قيد الانتظار';
+        break;
     }
 
     return Card(
@@ -51,106 +61,118 @@ class MaintenanceCard extends StatelessWidget {
             // Header: Icon + Category + Status
             Row(
               children: [
-                Container(
-                  padding: const EdgeInsets.all(10),
-                  decoration: BoxDecoration(
-                    color: Colors.blue.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Icon(Icons.build, color: Colors.blue[800]),
-                ),
+                _buildCategoryIcon(category),
                 const SizedBox(width: 12),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        _getCategoryName(title),
+                        _getCategoryName(category),
                         style: GoogleFonts.cairo(fontWeight: FontWeight.bold, fontSize: 16),
                       ),
-                      if (location != null)
-                        Text(
-                          location!,
-                          style: GoogleFonts.cairo(color: Colors.grey, fontSize: 12),
-                        ),
+                      // عرض الموقع التفصيلي (الدور - الجناح - المكان)
+                      Text(
+                        "الدور $floor - جناح $wing - $locationType ${roomNo != null ? '($roomNo)' : ''}",
+                        style: GoogleFonts.cairo(color: Colors.grey[600], fontSize: 12),
+                      ),
                     ],
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                  decoration: BoxDecoration(
-                    color: statusColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(20),
-                  ),
-                  child: Text(
-                    statusText,
-                    style: GoogleFonts.cairo(color: statusColor, fontWeight: FontWeight.bold, fontSize: 12),
-                  ),
-                ),
+                _buildStatusBadge(statusText, statusColor),
               ],
             ),
             const SizedBox(height: 12),
+            Text(description, style: GoogleFonts.cairo(color: Colors.grey[800])),
 
-            // Description
-            Text(
-              description,
-              style: GoogleFonts.cairo(color: Colors.grey[800]),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-
-            // Image (If exists)
             if (imageUrl != null && imageUrl!.isNotEmpty) ...[
               const SizedBox(height: 12),
-              ClipRRect(
-                borderRadius: BorderRadius.circular(10),
-                child: Image.network(
-                  imageUrl!,
-                  height: 120,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                  errorBuilder: (c,e,s) => const SizedBox(), // إخفاء لو فشل التحميل
-                ),
-              ),
+              _buildImagePreview(imageUrl!),
             ],
 
             const SizedBox(height: 12),
-            // Footer: Date
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                Icon(Icons.calendar_today, size: 14, color: Colors.grey[400]),
-                const SizedBox(width: 4),
-                Text(
-                  _formatDate(date),
-                  style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 12),
-                ),
-              ],
-            ),
+            _buildFooter(date),
           ],
         ),
       ),
     );
   }
 
-  String _formatDate(String dateStr) {
-    try {
-      final date = DateTime.parse(dateStr);
-      return "${date.year}-${date.month}-${date.day}";
-    } catch (e) {
-      return dateStr;
-    }
+  // --- ويدجيت فرعية للتنظيم ---
+
+  Widget _buildCategoryIcon(String cat) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.blue.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: Icon(_getCategoryIcon(cat), color: Colors.blue[800]),
+    );
+  }
+
+  Widget _buildStatusBadge(String text, Color color) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+      decoration: BoxDecoration(
+        color: color.withOpacity(0.1),
+        borderRadius: BorderRadius.circular(20),
+      ),
+      child: Text(
+        text,
+        style: GoogleFonts.cairo(color: color, fontWeight: FontWeight.bold, fontSize: 11),
+      ),
+    );
+  }
+
+  Widget _buildImagePreview(String url) {
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(10),
+      child: Image.network(
+        url,
+        height: 150,
+        width: double.infinity,
+        fit: BoxFit.cover,
+        errorBuilder: (c, e, s) => const SizedBox(),
+      ),
+    );
+  }
+
+  Widget _buildFooter(String dateStr) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        Icon(Icons.access_time, size: 14, color: Colors.grey[400]),
+        const SizedBox(width: 4),
+        Text(_formatDate(dateStr), style: GoogleFonts.cairo(color: Colors.grey[400], fontSize: 11)),
+      ],
+    );
+  }
+
+  // --- Helper Methods ---
+
+  IconData _getCategoryIcon(String key) {
+    const icons = {
+      'electricity': Icons.flash_on,
+      'plumbing': Icons.plumbing,
+      'gas': Icons.local_fire_department,
+      'internet': Icons.wifi,
+    };
+    return icons[key] ?? Icons.build;
   }
 
   String _getCategoryName(String key) {
     const map = {
-      'electricity': 'كهرباء',
-      'plumbing': 'سباكة',
-      'carpentry': 'نجارة',
-      'aluminum': 'ألوميتال',
-      'gas': 'غاز',
-      'internet': 'إنترنت',
+      'electricity': 'كهرباء', 'plumbing': 'سباكة', 'carpentry': 'نجارة',
+      'aluminum': 'ألوميتال', 'gas': 'غاز', 'internet': 'إنترنت', 'glass': 'زجاج'
     };
     return map[key] ?? key;
+  }
+
+  String _formatDate(String dateStr) {
+    try {
+      final date = DateTime.parse(dateStr);
+      return "${date.year}-${date.month}-${date.day}";
+    } catch (e) { return dateStr; }
   }
 }

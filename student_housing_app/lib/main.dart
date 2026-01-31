@@ -4,6 +4,7 @@ import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 
 // ✅ استيراد كل الـ ViewModels
+import 'core/viewmodels/announcements_view_model.dart';
 import 'core/viewmodels/profile_view_model.dart';
 import 'core/viewmodels/notifications_view_model.dart';
 import 'core/viewmodels/activities_view_model.dart'; // جديد
@@ -44,6 +45,7 @@ class StudentHousingApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => MaintenanceViewModel()),
         ChangeNotifierProvider(create: (_) => PermissionsViewModel()),
         ChangeNotifierProvider(create: (_) => ClearanceViewModel()),
+        ChangeNotifierProvider(create: (_) => AnnouncementsViewModel()),
       ],
       child: MaterialApp(
         debugShowCheckedModeBanner: false,

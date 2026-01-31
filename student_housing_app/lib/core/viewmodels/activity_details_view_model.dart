@@ -1,35 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 import '../repositories/data_repository.dart';
+import 'activities_view_model.dart';
 
 class ActivityDetailsViewModel extends ChangeNotifier {
-  // ============================================================================
-  // DEPENDENCIES
-  // ============================================================================
   final DataRepository _dataRepository = DataRepository();
 
-  // ============================================================================
-  // STATE VARIABLES
-  // ============================================================================
   Map<String, dynamic>? _activity;
-  bool _isLoading = false;
   bool _isSubmitting = false;
-  String? _errorMessage;
-  String? _successMessage;
+  bool _isSubscribed = false; // القيمة الحقيقية المتحكمة في الزر
 
   // ============================================================================
   // GETTERS
   // ============================================================================
   Map<String, dynamic>? get activity => _activity;
-  bool get isLoading => _isLoading;
   bool get isSubmitting => _isSubmitting;
-  String? get errorMessage => _errorMessage;
-  String? get successMessage => _successMessage;
-
-  // Check if subscribed based on local data
-  bool get isSubscribed {
-    if (_activity == null) return false;
-    return _activity!['is_subscribed'] == true || _activity!['is_subscribed'] == 1;
-  }
+  bool get isSubscribed => _isSubscribed;
 
   // ============================================================================
   // PUBLIC METHODS
@@ -38,109 +24,76 @@ class ActivityDetailsViewModel extends ChangeNotifier {
   /// Initialize Data
   void setInitialData(Map<String, dynamic> data) {
     _activity = data;
+    // ✅ تصحيح: قراءة حالة الاشتراك فوراً من البيانات الممررة
+    final subVal = data['is_subscribed'];
+    _isSubscribed = (subVal == 1 || subVal == true);
     notifyListeners();
   }
 
-  /// The Main Action: Toggle Subscription
+  /// التبديل الذكي بين الاشتراك وإلغاء الاشتراك
   Future<void> toggleSubscription(BuildContext context) async {
-    if (_activity == null) return;
+    if (_activity == null || _isSubmitting) return;
 
-    if (isSubscribed) {
-      await _unsubscribe(context);
+    _isSubmitting = true;
+    notifyListeners();
+
+    // الوصول للـ Main ViewModel لتحديث القائمة الرئيسية
+    final mainVM = Provider.of<ActivitiesViewModel>(context, listen: false);
+    bool success;
+    int activityId = _activity!['id'];
+
+    // تنفيذ العملية بناءً على الحالة الحالية
+    if (_isSubscribed) {
+      success = await mainVM.unsubscribeFromActivity(activityId);
     } else {
-      await _subscribe(context);
+      success = await mainVM.subscribeToActivity(activityId);
     }
+
+    if (success) {
+      // ✅ تحديث الحالة المحلية بنجاح
+      _isSubscribed = !_isSubscribed;
+      _updateLocalState(isSubscribed: _isSubscribed);
+
+      _showSnackBar(context, _isSubscribed ? "تم الاشتراك بنجاح" : "تم إلغاء الاشتراك");
+    } else {
+      // في حالة الفشل، الـ MainViewModel غالباً رجع الحالة لأصلها، فنظهر تنبيه
+      _showSnackBar(context, "فشل في تحديث طلبك، حاول مرة أخرى", isError: true);
+    }
+
+    _isSubmitting = false;
+    notifyListeners();
   }
 
   // ============================================================================
-  // PRIVATE HELPERS (Logic Implementation)
+  // PRIVATE HELPERS
   // ============================================================================
 
-  /// Logic: Subscribe (Smart & Self-Healing)
-  Future<void> _subscribe(BuildContext context) async {
-    _isSubmitting = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final result = await _dataRepository.subscribeToActivity(_activity!['id']);
-
-      if (result['success'] == true) {
-        // نجاح طبيعي
-        _successMessage = 'تم الاشتراك بنجاح!';
-        _updateLocalState(isSubscribed: true, incrementCount: true);
-      }
-      // ✅ الحل السحري: معالجة حالة "مشترك بالفعل"
-      else if (result['message'].toString().contains('already subscribed') ||
-          result['message'].toString().contains('409')) {
-
-        _successMessage = 'تم تحديث حالة الاشتراك';
-        // التطبيق كان فاكر غلط، ودلوقتي هنصحح المعلومة ونخليه "مشترك"
-        _updateLocalState(isSubscribed: true, incrementCount: false);
-
-      } else {
-        _errorMessage = result['message'] ?? 'فشل الاشتراك';
-        _showSnackBar(context, _errorMessage!, isError: true);
-      }
-    } catch (e) {
-      _errorMessage = 'حدث خطأ: $e';
-      _showSnackBar(context, _errorMessage!, isError: true);
-    } finally {
-      _isSubmitting = false;
-      notifyListeners();
-    }
-  }
-
-  /// Logic: Unsubscribe
-  Future<void> _unsubscribe(BuildContext context) async {
-    _isSubmitting = true;
-    _errorMessage = null;
-    notifyListeners();
-
-    try {
-      final result = await _dataRepository.unsubscribeFromActivity(_activity!['id']);
-
-      if (result['success'] == true) {
-        _successMessage = 'تم إلغاء الاشتراك بنجاح';
-
-        // ✅ استخدام الدالة المساعدة هنا كمان عشان الكود يبقى أنظف
-        _updateLocalState(isSubscribed: false, incrementCount: false);
-
-      } else {
-        _errorMessage = result['message'] ?? 'فشل إلغاء الاشتراك';
-        _showSnackBar(context, _errorMessage!, isError: true);
-      }
-    } catch (e) {
-      _errorMessage = 'حدث خطأ: $e';
-      _showSnackBar(context, _errorMessage!, isError: true);
-    } finally {
-      _isSubmitting = false;
-      notifyListeners();
-    }
-  }
-
-  // ✅ الدالة الموحدة لتحديث الحالة
-  void _updateLocalState({required bool isSubscribed, bool incrementCount = false}) {
+  /// تحديث بيانات الـ Map المحلي للنشاط لضمان اتساق البيانات
+  void _updateLocalState({required bool isSubscribed}) {
     if (_activity == null) return;
 
-    _activity!['is_subscribed'] = isSubscribed;
+    // تحديث القيمة داخل الـ Map
+    _activity!['is_subscribed'] = isSubscribed ? 1 : 0;
 
-    if (incrementCount) {
-      _activity!['participant_count'] = (_activity!['participant_count'] ?? 0) + 1;
-    } else if (!isSubscribed && (_activity!['participant_count'] ?? 0) > 0) {
-      // بننقص العدد لو بنلغي الاشتراك
-      _activity!['participant_count'] = _activity!['participant_count'] - 1;
+    // تحديث عداد المشاركين (اختياري لو بتستخدمه في الـ UI)
+    if (_activity!.containsKey('participant_count')) {
+      if (isSubscribed) {
+        _activity!['participant_count'] = (_activity!['participant_count'] ?? 0) + 1;
+      } else {
+        if ((_activity!['participant_count'] ?? 0) > 0) {
+          _activity!['participant_count'] = _activity!['participant_count'] - 1;
+        }
+      }
     }
-
     notifyListeners();
   }
 
-  /// Helper to show SnackBars
   void _showSnackBar(BuildContext context, String message, {bool isError = false}) {
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text(message),
+        content: Text(message, style: const TextStyle(fontFamily: 'Cairo')),
         backgroundColor: isError ? Colors.red : Colors.green,
+        duration: const Duration(seconds: 2),
       ),
     );
   }
